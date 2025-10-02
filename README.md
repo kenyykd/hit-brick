@@ -1,4 +1,4 @@
-hit-break.netlify.app
+[hit-break.netlify.app](https://hit-break.netlify.app/)
 
 
 # 🎮 打磚遊戲 (Brick Breaker Game)
