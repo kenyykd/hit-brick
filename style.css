@@ -1,0 +1,32 @@
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f0f0f0;
+}
+
+canvas {
+  border: 1px solid rgb(212, 212, 212);
+  border-radius: 10px;
+  max-width: 100vw;
+  max-height: 100vh;
+  width: auto;
+  height: auto;
+}
+
+@media (max-width: 850px) {
+  canvas {
+    width: 100vw;
+    height: 75vh;
+  }
+}
+
+@media (max-height: 650px) {
+  canvas {
+    width: 90vw;
+    height: 90vh;
+  }
+}
