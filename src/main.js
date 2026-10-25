@@ -1,3 +1,9 @@
+import Matter from "matter-js";
+import "./style.css";
+import { createDebug, debugEnabledFromUrl } from "./render/debug.js";
+
+const debug = createDebug({ enabled: debugEnabledFromUrl() });
+
 const canvas = document.getElementById("myCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -634,7 +640,20 @@ function drawInstructions() {
   // 移除所有操作說明文字
 }
 
-function animate() {
+function drawDebug() {
+  const rects = [{ x: paddle.x, y: paddle.y, w: paddle.width, h: paddle.height }];
+  for (let c = 0; c < brickColumnCount; c++) {
+    for (let r = 0; r < brickRowCount; r++) {
+      const brick = bricks[c][r];
+      if (brick.status === 1) rects.push({ x: brick.x, y: brick.y, w: brickWidth, h: brickHeight });
+    }
+  }
+  debug.draw(ctx, { circles: [{ x: ball.x, y: ball.y, r: ball.radius }], rects });
+}
+
+function animate(now) {
+  debug.frame(now ?? performance.now());
+
   // 清除畫布
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -646,6 +665,7 @@ function animate() {
   drawScore();
   drawLives();
   drawInstructions(); // 繪製操作說明
+  drawDebug();
   updateBall();
   updatePaddle();
 
