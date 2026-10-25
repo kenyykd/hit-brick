@@ -50,13 +50,13 @@ export function createDebug({ enabled = false } = {}) {
     const lines = [`FPS: ${state.fps.toFixed(0)}`];
     for (const [key, value] of Object.entries(state.stats)) lines.push(`${key}: ${value}`);
 
-    ctx.font = "12px monospace";
+    ctx.font = "14px monospace";
     ctx.textBaseline = "top";
     const width = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 12;
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(4, 28, width, lines.length * 16 + 8);
+    ctx.fillRect(4, 64, width, lines.length * 18 + 8);
     ctx.fillStyle = "#0f0";
-    lines.forEach((line, i) => ctx.fillText(line, 10, 32 + i * 16));
+    lines.forEach((line, i) => ctx.fillText(line, 10, 68 + i * 18));
     ctx.restore();
   }
 
