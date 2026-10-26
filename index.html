@@ -9,23 +9,113 @@
   <body>
     <div id="app">
       <div id="frame">
-        <div id="stage">
+        <div id="stage" data-screen="menu">
           <canvas id="game"></canvas>
-          <div class="hud" aria-live="polite">
+
+          <div class="hud">
             <span id="hud-score">分數 0</span>
             <span id="hud-level">第 1 關</span>
-            <span id="hud-lives">生命 3</span>
+            <span class="hud-right">
+              <span id="hud-lives">生命 3</span>
+              <button type="button" class="pause-button ui" data-action="pause" aria-label="暫停">
+                <span aria-hidden="true">❚❚</span>
+              </button>
+            </span>
           </div>
-          <div id="overlay" class="overlay ui" hidden>
+          <div id="hud-combo" class="combo" hidden></div>
+          <div id="hint" class="hint" role="status" hidden></div>
+
+          <section class="screen ui" data-screen="menu">
             <div class="panel">
-              <h2 id="overlay-title"></h2>
-              <p id="overlay-score"></p>
+              <h1>打磚塊</h1>
               <div class="buttons">
-                <button id="overlay-next" type="button">下一關</button>
-                <button id="overlay-restart" type="button" class="secondary">再玩一次</button>
+                <button type="button" data-action="start">開始遊戲</button>
+                <button type="button" class="secondary" data-action="paddles">選擇板子</button>
+                <button type="button" class="secondary" data-action="settings">設定</button>
+              </div>
+              <p id="save-warning" class="note" hidden>目前無法儲存進度（例如隱私模式），遊戲仍可正常遊玩。</p>
+            </div>
+          </section>
+
+          <section class="screen ui" data-screen="levels" hidden>
+            <div class="panel wide">
+              <header class="screen-header">
+                <button type="button" class="small secondary" data-action="menu">返回</button>
+                <h2>選擇關卡</h2>
+              </header>
+              <div id="level-grid" class="level-grid"></div>
+            </div>
+          </section>
+
+          <section class="screen ui" data-screen="paddles" hidden>
+            <div class="panel wide">
+              <header class="screen-header">
+                <button type="button" class="small secondary" data-action="menu">返回</button>
+                <h2>選擇板子</h2>
+              </header>
+              <div id="paddle-list" class="paddle-list"></div>
+              <p class="note">更多板子之後可以用星星解鎖。</p>
+            </div>
+          </section>
+
+          <section class="screen ui" data-screen="settings" hidden>
+            <div class="panel wide">
+              <header class="screen-header">
+                <button type="button" class="small secondary" data-action="close-settings">返回</button>
+                <h2>設定</h2>
+              </header>
+              <form id="settings-form" class="settings-form">
+                <label><input type="checkbox" name="sound" /> 音效</label>
+                <label><input type="checkbox" name="music" /> 音樂</label>
+                <label><input type="checkbox" name="screenShake" /> 畫面震動</label>
+                <label><input type="checkbox" name="vibration" /> 手機震動</label>
+                <label>
+                  特效品質
+                  <select name="effects">
+                    <option value="high">高</option>
+                    <option value="medium">中</option>
+                    <option value="low">低</option>
+                  </select>
+                </label>
+              </form>
+              <p class="note">音效、音樂、特效與震動會在之後的版本生效。</p>
+              <div id="key-section">
+                <h3>電腦按鍵</h3>
+                <div id="key-list" class="key-list"></div>
+                <button type="button" id="reset-keys" class="small secondary">恢復預設按鍵</button>
               </div>
             </div>
-          </div>
+          </section>
+
+          <section class="screen ui" data-screen="paused" hidden>
+            <div class="panel">
+              <h2>暫停</h2>
+              <div class="buttons">
+                <button type="button" data-action="resume">繼續</button>
+                <button type="button" class="secondary" data-action="restart">重新開始這關</button>
+                <button type="button" class="secondary" data-action="settings">設定</button>
+                <button type="button" class="secondary" data-action="levels">回到選關</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen ui countdown" data-screen="countdown" hidden>
+            <div id="countdown-number" class="countdown-number" aria-live="assertive">3</div>
+          </section>
+
+          <section class="screen ui" data-screen="result" hidden>
+            <div class="panel">
+              <h2 id="result-title"></h2>
+              <p id="result-score" class="result-score"></p>
+              <p id="result-best"></p>
+              <p id="result-target" class="note"></p>
+              <div class="buttons">
+                <button type="button" id="result-next" data-action="next">下一關</button>
+                <button type="button" class="secondary" data-action="restart">再玩一次</button>
+                <button type="button" class="secondary" data-action="levels">回到選關</button>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>

@@ -2,8 +2,11 @@
   --bg: #0b0e16;
   --field: #141927;
   --text: #e8ecf4;
+  --muted: #a5adbd;
   --accent: #4dabf7;
+  --gold: #ffd43b;
   --panel: rgba(20, 25, 39, 0.94);
+  --line: rgba(255, 255, 255, 0.14);
 }
 
 html,
@@ -61,52 +64,157 @@ body {
   }
 }
 
+/* ---- 遊戲中 HUD ---- */
+
 .hud {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  display: flex;
+  display: none;
+  align-items: center;
   justify-content: space-between;
-  padding: calc(20px * var(--ui-scale)) calc(24px * var(--ui-scale));
+  gap: 8px;
+  padding: calc(12px * var(--ui-scale)) calc(16px * var(--ui-scale)) 0 calc(24px * var(--ui-scale));
   font-size: calc(24px * var(--ui-scale));
   font-weight: 600;
   pointer-events: none;
 }
 
-.overlay {
+/* HUD 只在遊戲相關畫面顯示 */
+#stage:is([data-screen="game"], [data-screen="paused"], [data-screen="countdown"], [data-screen="result"]) .hud {
+  display: flex;
+}
+
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pause-button {
+  pointer-events: auto;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.combo {
+  position: absolute;
+  top: calc(64px * var(--ui-scale));
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: calc(22px * var(--ui-scale));
+  font-weight: 700;
+  color: var(--gold);
+  pointer-events: none;
+}
+
+/* 放在瞄準線上方的空白區，不蓋住板子和球 */
+.hint {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(320px * var(--ui-scale));
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
+#stage:not([data-screen="game"]) .combo,
+#stage:not([data-screen="game"]) .hint {
+  display: none;
+}
+
+/* ---- 選單類畫面 ---- */
+
+.screen {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  touch-action: pan-y; /* 內容太長時可以上下捲動 */
+  background: rgba(5, 7, 12, 0.6);
 }
 
-.overlay[hidden] {
+.screen[hidden] {
   display: none;
 }
 
 .panel {
-  min-width: 60%;
+  width: min(100%, 360px);
+  max-height: 100%;
+  box-sizing: border-box;
   padding: 24px;
   border-radius: 16px;
   background: var(--panel);
   text-align: center;
 }
 
-.panel h2 {
-  margin: 0 0 8px;
-  font-size: 28px;
+.panel.wide {
+  width: min(100%, 460px);
+  overflow-y: auto;
 }
 
-.panel p {
-  margin: 0 0 20px;
+.panel h1 {
+  margin: 8px 0 24px;
+  font-size: 40px;
+  letter-spacing: 0.1em;
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 26px;
+}
+
+.panel h3 {
+  margin: 20px 0 8px;
   font-size: 18px;
 }
 
+.panel p {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 14px !important;
+}
+
+.screen-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.screen-header h2 {
+  margin: 0;
+}
+
+/* 右邊放一個看不見的佔位，讓標題置中 */
+.screen-header::after {
+  content: "";
+  width: 72px;
+}
+
 .panel button {
-  min-width: 160px;
+  min-width: 180px;
   min-height: 48px;
   border: 0;
   border-radius: 24px;
@@ -118,15 +226,11 @@ body {
   cursor: pointer;
 }
 
-.buttons {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.panel button[hidden] {
-  display: none;
+.panel button.small {
+  min-width: 72px;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 15px;
 }
 
 .panel button.secondary {
@@ -135,11 +239,178 @@ body {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3);
 }
 
+.panel button[hidden] {
+  display: none;
+}
+
+.panel button:focus-visible,
+.pause-button:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.result-score {
+  font-size: 28px !important;
+  font-weight: 700;
+}
+
+/* ---- 選關 ---- */
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+}
+
+.panel .level-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 6px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.panel .level-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.level-number {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.level-stars {
+  color: var(--gold);
+  letter-spacing: 2px;
+}
+
+.level-best {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---- 選板子 ---- */
+
+.paddle-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.panel .paddle-card {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  text-align: left;
+  font-weight: 400;
+}
+
+.panel .paddle-card.selected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.paddle-preview {
+  grid-row: span 2;
+  height: 14px;
+  border-radius: 7px;
+}
+
+.paddle-name {
+  font-weight: 700;
+}
+
+.paddle-skill {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ---- 設定 ---- */
+
+.settings-form {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  font-size: 17px;
+}
+
+.settings-form label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+
+.settings-form input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+}
+
+.settings-form select {
+  margin-left: auto;
+  min-height: 36px;
+  font: inherit;
+}
+
+.key-list {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.key-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.key-current {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* ---- 恢復倒數 ---- */
+
+.screen.countdown {
+  background: rgba(5, 7, 12, 0.35);
+}
+
+.countdown-number {
+  font-size: calc(140px * var(--ui-scale));
+  font-weight: 800;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- 手機橫放：提示轉回直式，不做橫向版面 ---- */
+
 .rotate-hint {
   display: none;
 }
 
-/* 手機橫放：提示轉回直式，不做橫向版面 */
 @media (pointer: coarse) and (orientation: landscape) {
   #app {
     visibility: hidden;

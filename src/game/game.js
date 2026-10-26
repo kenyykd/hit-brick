@@ -62,9 +62,11 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed })
     events.emit("gameReset", { level: state.level, lives: state.lives, score: state.score });
   }
 
-  function loadLevel(nextLevel) {
+  // paddle 可選：換板子（選板子畫面），不傳則沿用目前的板子
+  function loadLevel(nextLevel, nextPaddleDef = paddleDef) {
     parsedLevel = parseLevel(nextLevel);
     state.level = nextLevel;
+    paddleDef = nextPaddleDef;
     reset();
   }
 

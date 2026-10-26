@@ -27,7 +27,8 @@ export function isValidPull(pullDy) {
 }
 
 export function createInput({ element, canvas, getField, getPaddle, isHolding, bindings }) {
-  const keyMap = buildKeyMap(bindings);
+  let keyMap = buildKeyMap(bindings);
+  let enabled = true; // 選單、暫停時停用，避免按鍵被遊戲吃掉
   const held = new Set();
   const defaultAim = LAUNCH.defaultAngleDeg * DEG;
   const s = {
@@ -65,7 +66,7 @@ export function createInput({ element, canvas, getField, getPaddle, isHolding, b
   }
 
   element.addEventListener("pointerdown", (e) => {
-    if (onUi(e)) return;
+    if (!enabled || onUi(e)) return;
     if (e.pointerType === "mouse" && e.button === 2) {
       s.skill = true;
       return;
@@ -92,6 +93,7 @@ export function createInput({ element, canvas, getField, getPaddle, isHolding, b
   });
 
   element.addEventListener("pointermove", (e) => {
+    if (!enabled) return;
     const p = toLogical(e);
     if (!pointer) {
       if (e.pointerType === "mouse") setTarget(p.x);
@@ -131,6 +133,7 @@ export function createInput({ element, canvas, getField, getPaddle, isHolding, b
   element.addEventListener("contextmenu", (e) => e.preventDefault());
 
   window.addEventListener("keydown", (e) => {
+    if (!enabled) return;
     const action = keyMap.get(e.code);
     if (!action) return;
     e.preventDefault();
@@ -198,5 +201,29 @@ export function createInput({ element, canvas, getField, getPaddle, isHolding, b
     };
   }
 
-  return { poll, getAim };
+  // 清掉所有按住的鍵、拖曳中的手指與還沒處理的動作（暫停恢復、換關時用）
+  function reset() {
+    held.clear();
+    pointer = null;
+    s.launch = false;
+    s.skill = false;
+    s.pause = false;
+    s.aimAngle = defaultAim;
+    s.paddleTargetX = paddleCenterX(); // 板子停在原地，不會自己滑走
+  }
+
+  function setEnabled(value) {
+    enabled = value;
+    if (!value) {
+      held.clear();
+      pointer = null;
+    }
+  }
+
+  function setBindings(next) {
+    keyMap = buildKeyMap(next);
+    held.clear();
+  }
+
+  return { poll, getAim, reset, setEnabled, setBindings };
 }

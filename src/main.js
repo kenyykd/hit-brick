@@ -1,4 +1,6 @@
 import "./style.css";
+import { createApp } from "./app.js";
+import { createAudio } from "./audio/audio.js";
 import { FIELD, LOOP } from "./config.js";
 import { createEventBus } from "./core/events.js";
 import { startLoop } from "./core/loop.js";
@@ -10,32 +12,21 @@ import { LEVELS, SANDBOX_LEVEL } from "./levels/levels.js";
 import { createDebug, debugEnabledFromUrl } from "./render/debug.js";
 import { createRenderer } from "./render/renderer.js";
 import { createViewport } from "./render/viewport.js";
+import { createSaveStore } from "./save/save.js";
 import { createHud } from "./ui/hud.js";
-import { createOverlay } from "./ui/overlay.js";
 
 const $ = (selector) => document.querySelector(selector);
 
 const events = createEventBus();
+const store = createSaveStore();
 const canvas = $("#game");
 const viewport = createViewport({ frame: $("#frame"), stage: $("#stage"), canvas });
 
-// 暫時用網址選關（?level=3；除錯模式下 ?level=sandbox 開沙盒關），階段 3 改成選關畫面
-function levelFromUrl() {
-  const param = new URLSearchParams(window.location.search).get("level");
-  if (param === "sandbox" && debugEnabledFromUrl()) return SANDBOX_LEVEL;
-  return LEVELS.find((l) => String(l.id) === param) ?? LEVELS[0];
-}
-
-function nextLevel() {
-  const index = LEVELS.indexOf(game.state.level);
-  return index >= 0 ? LEVELS[index + 1] : undefined;
-}
-
 const game = createGame({
   fieldHeight: viewport.layout?.height ?? FIELD.minHeight,
-  paddleDef: PADDLES.standard,
+  paddleDef: PADDLES[store.data.selectedPaddle] ?? PADDLES.standard,
   events,
-  level: levelFromUrl(),
+  level: LEVELS[0],
 });
 viewport.onChange((layout) => game.setFieldHeight(layout.height));
 
@@ -48,24 +39,55 @@ const input = createInput({
   bindings: DEFAULT_KEYBINDINGS,
 });
 
-createHud({ scoreEl: $("#hud-score"), levelEl: $("#hud-level"), livesEl: $("#hud-lives"), events, state: game.state });
-createOverlay({
-  root: $("#overlay"),
-  titleEl: $("#overlay-title"),
-  scoreEl: $("#overlay-score"),
-  restartButton: $("#overlay-restart"),
-  nextButton: $("#overlay-next"),
+createHud({
+  scoreEl: $("#hud-score"),
+  levelEl: $("#hud-level"),
+  livesEl: $("#hud-lives"),
+  comboEl: $("#hud-combo"),
   events,
   state: game.state,
-  hasNextLevel: () => Boolean(nextLevel()),
-  onRestart: () => game.reset(),
-  onNext: () => game.loadLevel(nextLevel()),
+});
+
+const app = createApp({
+  dom: {
+    stage: $("#stage"),
+    hint: $("#hint"),
+    countdown: $("#countdown-number"),
+    levelGrid: $("#level-grid"),
+    paddleList: $("#paddle-list"),
+    saveWarning: $("#save-warning"),
+    result: {
+      title: $("#result-title"),
+      score: $("#result-score"),
+      best: $("#result-best"),
+      target: $("#result-target"),
+      next: $("#result-next"),
+    },
+    settings: {
+      form: $("#settings-form"),
+      keyList: $("#key-list"),
+      resetKeysButton: $("#reset-keys"),
+      keySection: $("#key-section"),
+    },
+  },
+  game,
+  events,
+  input,
+  store,
+  audio: createAudio(),
 });
 
 const renderer = createRenderer(canvas);
 const debug = createDebug({ enabled: debugEnabledFromUrl() });
-// 除錯模式下開放給瀏覽器 console 與自動化測試檢查狀態
-if (debugEnabledFromUrl()) window.__game = game;
+
+// 除錯模式：開放給瀏覽器 console 與自動化測試檢查狀態；?level=N 或 ?level=sandbox 直接開始該關
+if (debugEnabledFromUrl()) {
+  window.__game = game;
+  window.__app = app;
+  const param = new URLSearchParams(window.location.search).get("level");
+  const level = param === "sandbox" ? SANDBOX_LEVEL : LEVELS.find((l) => String(l.id) === param);
+  if (level) app.startLevel(level);
+}
 
 function debugShapes(state) {
   const { paddle } = state;
@@ -80,7 +102,7 @@ function debugShapes(state) {
 
 startLoop({
   config: LOOP,
-  update: (dt) => game.step(dt, input.poll(dt)),
+  update: app.update,
   render: ({ alpha, steps, now }) => {
     const layout = viewport.layout;
     if (!layout) return;
@@ -88,6 +110,7 @@ startLoop({
     renderer.draw(game.state, { alpha, aim: input.getAim(), layout });
     if (debug.enabled) {
       debug.setStats({
+        畫面: app.flow.state.screen,
         步數: steps,
         子步驟: game.state.lastSubsteps,
         球數: game.state.balls.length,
