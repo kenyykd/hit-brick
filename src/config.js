@@ -34,6 +34,13 @@ export const RENDER = {
 
 export const GAME = {
   startLives: 3,
+  maxLives: 5,
+  resumeCountdown: 3, // 暫停恢復前的倒數秒數
+};
+
+export const COMBO = {
+  step: 5, // 每幾連擊加 1 倍
+  maxMultiplier: 4,
 };
 
 export const BRICK_LAYOUT = {

@@ -15,6 +15,7 @@ import {
 import { createStuckBall, followPaddle } from "./ball.js";
 import { explode } from "./explosion.js";
 import { createPaddle, paddleCenter, updatePaddle } from "./paddle.js";
+import { comboMultiplier } from "./scoring.js";
 
 const MAX_PUSHOUT_ITERATIONS = 4;
 
@@ -29,6 +30,8 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed })
     bricks: [],
     score: 0,
     lives: GAME.startLives,
+    livesLost: 0, // 本關失去的生命數（星星「未失去生命」用）
+    combo: 0, // 球連續打破的磚數，碰到板子或失去生命歸零
     status: "playing", // playing | cleared | over
     ballSpeed: 0,
     lastSubsteps: 0,
@@ -53,6 +56,8 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed })
     state.ballSpeed = Math.min(ballSpeed ?? state.level.ballSpeed, BALL.maxSpeed);
     state.score = 0;
     state.lives = GAME.startLives;
+    state.livesLost = 0;
+    state.combo = 0;
     state.status = "playing";
     events.emit("gameReset", { level: state.level, lives: state.lives, score: state.score });
   }
@@ -128,6 +133,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed })
         ball.vx = bounce.vx;
         ball.vy = bounce.vy;
         events.emit("paddleHit", { ballId: ball.id, offset: bounce.offset });
+        resetCombo();
       }
     } else if (ball.x < paddleX + paddle.width / 2) {
       // 打到側邊：水平推出，往外彈
@@ -170,20 +176,39 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed })
     return true;
   }
 
+  function resetCombo() {
+    if (state.combo === 0) return;
+    state.combo = 0;
+    events.emit("comboChanged", { combo: 0, multiplier: 1 });
+  }
+
+  // 每打破一塊磚（含爆炸連鎖）連擊 +1，分數乘上連擊倍率
+  function awardBrick(brick, baseScore, chainDepth) {
+    state.combo += 1;
+    const multiplier = comboMultiplier(state.combo);
+    const score = baseScore * multiplier;
+    state.score += score;
+    events.emit("brickDestroyed", {
+      brick,
+      type: brick.type,
+      score,
+      chain: chainDepth > 0,
+      chainDepth,
+      combo: state.combo,
+      multiplier,
+    });
+    events.emit("comboChanged", { combo: state.combo, multiplier });
+  }
+
   function destroyBrick(brick) {
     brick.alive = false;
-    state.score += brick.score;
-    events.emit("brickDestroyed", { brick, type: brick.type, score: brick.score, chain: false, chainDepth: 0 });
+    awardBrick(brick, brick.score, 0);
     if (!brick.explosive) return;
 
     const { destroyed, detonations } = explode(brick, (row, col) => brickLookup.get(`${row},${col}`));
     for (const { brick: b, depth } of detonations) events.emit("explosion", { brick: b, depth });
-    for (const { brick: b, depth } of destroyed) {
-      // 連鎖越深分數越高
-      const score = b.score + CHAIN_BONUS * depth;
-      state.score += score;
-      events.emit("brickDestroyed", { brick: b, type: b.type, score, chain: true, chainDepth: depth });
-    }
+    // 連鎖越深分數越高
+    for (const { brick: b, depth } of destroyed) awardBrick(b, b.score + CHAIN_BONUS * depth, depth);
   }
 
   // 回傳 false 表示球掉出場外
@@ -245,10 +270,12 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed })
 
     if (state.balls.length === 0) {
       state.lives -= 1;
+      state.livesLost += 1;
+      resetCombo();
       events.emit("lifeLost", { lives: state.lives });
       if (state.lives <= 0) {
         state.status = "over";
-        events.emit("gameOver", { score: state.score });
+        events.emit("gameOver", { level: state.level, score: state.score });
         return;
       }
       state.balls.push(createStuckBall(paddle, BALL.radius));
@@ -256,7 +283,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed })
 
     if (!state.bricks.some((b) => b.alive && b.breakable)) {
       state.status = "cleared";
-      events.emit("levelCleared", { score: state.score, lives: state.lives });
+      events.emit("levelCleared", { level: state.level, score: state.score, lives: state.lives, livesLost: state.livesLost });
     }
   }
 
