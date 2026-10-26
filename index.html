@@ -13,13 +13,17 @@
           <canvas id="game"></canvas>
           <div class="hud" aria-live="polite">
             <span id="hud-score">分數 0</span>
+            <span id="hud-level">第 1 關</span>
             <span id="hud-lives">生命 3</span>
           </div>
           <div id="overlay" class="overlay ui" hidden>
             <div class="panel">
               <h2 id="overlay-title"></h2>
               <p id="overlay-score"></p>
-              <button id="overlay-restart" type="button">再玩一次</button>
+              <div class="buttons">
+                <button id="overlay-next" type="button">下一關</button>
+                <button id="overlay-restart" type="button" class="secondary">再玩一次</button>
+              </div>
             </div>
           </div>
         </div>

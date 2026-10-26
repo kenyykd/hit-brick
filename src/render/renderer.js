@@ -1,10 +1,11 @@
 // Canvas 繪製。只讀遊戲狀態，不改任何東西；球與板子用 alpha 在上一個與目前 tick 之間內插。
 
 import { angleToUpVector, lerp } from "../core/math.js";
+import { BRICK_COLORS, THEMES } from "../data/themes.js";
 
 const COLORS = {
-  field: "#141927",
   ball: "#f8f9fa",
+  mark: "rgba(0, 0, 0, 0.35)",
   aim: "rgba(255, 255, 255, 0.75)",
   pull: "rgba(255, 255, 255, 0.3)",
   pullInvalid: "rgba(255, 120, 120, 0.4)",
@@ -22,11 +23,49 @@ export function createRenderer(canvas) {
     ctx.fill();
   }
 
-  function drawBricks(bricks) {
+  function brickColor(b, theme) {
+    if (b.type === "tough") return BRICK_COLORS.tough[b.hp] ?? BRICK_COLORS.tough[1];
+    if (b.type === "steel") return BRICK_COLORS.steel;
+    if (b.type === "explosive") return BRICK_COLORS.explosive;
+    return theme.rows[b.row % theme.rows.length];
+  }
+
+  // 除了顏色，每種磚還有形狀記號，色盲也能分辨
+  function drawBrickMark(b, x, y, w, h) {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    ctx.fillStyle = COLORS.mark;
+    ctx.strokeStyle = COLORS.mark;
+    if (b.type === "explosive") {
+      ctx.fillStyle = BRICK_COLORS.explosiveCore;
+      ctx.beginPath();
+      ctx.arc(cx, cy, h * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (b.type === "steel") {
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 4, y + 4, w - 8, h - 8);
+    } else if (b.type === "tough") {
+      // 剩幾下就畫幾個點
+      const spacing = 9;
+      const startX = cx - ((b.hp - 1) * spacing) / 2;
+      for (let i = 0; i < b.hp; i++) {
+        ctx.beginPath();
+        ctx.arc(startX + i * spacing, cy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawBricks(bricks, theme) {
     for (const b of bricks) {
       if (!b.alive) continue;
-      ctx.fillStyle = b.color;
-      roundRect(b.x + b.inset, b.y + b.inset, b.w - b.inset * 2, b.h - b.inset * 2, 4);
+      const x = b.x + b.inset;
+      const y = b.y + b.inset;
+      const w = b.w - b.inset * 2;
+      const h = b.h - b.inset * 2;
+      ctx.fillStyle = brickColor(b, theme);
+      roundRect(x, y, w, h, 4);
+      drawBrickMark(b, x, y, w, h);
     }
   }
 
@@ -75,10 +114,11 @@ export function createRenderer(canvas) {
   function draw(state, { alpha, aim, layout }) {
     const { width, height } = state.field;
     ctx.setTransform(layout.pixelWidth / width, 0, 0, layout.pixelHeight / height, 0, 0);
-    ctx.fillStyle = COLORS.field;
+    const theme = THEMES[state.level.theme];
+    ctx.fillStyle = theme.field;
     ctx.fillRect(0, 0, width, height);
 
-    drawBricks(state.bricks);
+    drawBricks(state.bricks, theme);
     drawPaddle(state.paddle, alpha);
     drawAim(state.balls, aim);
     drawBalls(state.balls, alpha);

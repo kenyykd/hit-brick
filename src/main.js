@@ -6,6 +6,7 @@ import { DEFAULT_KEYBINDINGS } from "./data/keybindings.js";
 import { PADDLES } from "./data/paddles.js";
 import { createGame } from "./game/game.js";
 import { createInput } from "./input/input.js";
+import { LEVELS, SANDBOX_LEVEL } from "./levels/levels.js";
 import { createDebug, debugEnabledFromUrl } from "./render/debug.js";
 import { createRenderer } from "./render/renderer.js";
 import { createViewport } from "./render/viewport.js";
@@ -18,10 +19,23 @@ const events = createEventBus();
 const canvas = $("#game");
 const viewport = createViewport({ frame: $("#frame"), stage: $("#stage"), canvas });
 
+// 暫時用網址選關（?level=3；除錯模式下 ?level=sandbox 開沙盒關），階段 3 改成選關畫面
+function levelFromUrl() {
+  const param = new URLSearchParams(window.location.search).get("level");
+  if (param === "sandbox" && debugEnabledFromUrl()) return SANDBOX_LEVEL;
+  return LEVELS.find((l) => String(l.id) === param) ?? LEVELS[0];
+}
+
+function nextLevel() {
+  const index = LEVELS.indexOf(game.state.level);
+  return index >= 0 ? LEVELS[index + 1] : undefined;
+}
+
 const game = createGame({
   fieldHeight: viewport.layout?.height ?? FIELD.minHeight,
   paddleDef: PADDLES.standard,
   events,
+  level: levelFromUrl(),
 });
 viewport.onChange((layout) => game.setFieldHeight(layout.height));
 
@@ -34,15 +48,18 @@ const input = createInput({
   bindings: DEFAULT_KEYBINDINGS,
 });
 
-createHud({ scoreEl: $("#hud-score"), livesEl: $("#hud-lives"), events, state: game.state });
+createHud({ scoreEl: $("#hud-score"), levelEl: $("#hud-level"), livesEl: $("#hud-lives"), events, state: game.state });
 createOverlay({
   root: $("#overlay"),
   titleEl: $("#overlay-title"),
   scoreEl: $("#overlay-score"),
-  button: $("#overlay-restart"),
+  restartButton: $("#overlay-restart"),
+  nextButton: $("#overlay-next"),
   events,
   state: game.state,
+  hasNextLevel: () => Boolean(nextLevel()),
   onRestart: () => game.reset(),
+  onNext: () => game.loadLevel(nextLevel()),
 });
 
 const renderer = createRenderer(canvas);

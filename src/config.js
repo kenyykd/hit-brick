@@ -35,3 +35,10 @@ export const RENDER = {
 export const GAME = {
   startLives: 3,
 };
+
+export const BRICK_LAYOUT = {
+  top: 96, // 磚區上緣，上方留給 HUD
+  gap: 6, // 只用於繪製的間隙
+  cellHeightRatio: 0.5, // 格子高度 = 格子寬度 × 比例
+  minCellHeight: 26, // 必須大於球的直徑
+};

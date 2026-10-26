@@ -4,6 +4,7 @@ import { createEventBus } from "../src/core/events.js";
 import { DEG } from "../src/core/math.js";
 import { PADDLES } from "../src/data/paddles.js";
 import { createGame } from "../src/game/game.js";
+import { LEVELS } from "../src/levels/levels.js";
 
 function setup(options = {}) {
   const events = createEventBus();
@@ -11,7 +12,7 @@ function setup(options = {}) {
   for (const type of ["ballLaunched", "paddleHit", "ballLost", "lifeLost", "gameOver", "levelCleared", "brickDestroyed"]) {
     events.on(type, (payload) => log.push({ type, ...payload }));
   }
-  const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.standard, events, ...options });
+  const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.standard, events, level: LEVELS[0], ...options });
   return { game, log, state: game.state };
 }
 
@@ -59,7 +60,7 @@ describe("發射", () => {
     const events = createEventBus();
     let skill = 0;
     events.on("skillRequested", () => skill++);
-    const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.standard, events });
+    const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.standard, events, level: LEVELS[0] });
     step(game, { launch: true, aimAngle: 0 });
     step(game, { skill: true });
     expect(skill).toBe(1);

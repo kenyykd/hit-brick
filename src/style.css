@@ -118,6 +118,23 @@ body {
   cursor: pointer;
 }
 
+.buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel button[hidden] {
+  display: none;
+}
+
+.panel button.secondary {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
 .rotate-hint {
   display: none;
 }

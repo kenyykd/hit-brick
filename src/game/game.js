@@ -1,7 +1,9 @@
 // 遊戲邏輯：每次 step 推進一個固定步長的 tick。不碰 DOM，可以在測試裡直接跑。
 
-import { BALL, FIELD, GAME, LAUNCH } from "../config.js";
+import { BALL, BRICK_LAYOUT, FIELD, GAME, LAUNCH } from "../config.js";
 import { angleToUpVector, lerp } from "../core/math.js";
+import { CHAIN_BONUS } from "../data/brick-types.js";
+import { buildBricks, parseLevel } from "../levels/parse.js";
 import { circleRectContact, findNearestHit } from "../physics/collision.js";
 import {
   enforceMinVerticalAngle,
@@ -11,37 +13,54 @@ import {
   substepCount,
 } from "../physics/ball-physics.js";
 import { createStuckBall, followPaddle } from "./ball.js";
-import { createBrickGrid } from "./bricks.js";
+import { explode } from "./explosion.js";
 import { createPaddle, paddleCenter, updatePaddle } from "./paddle.js";
 
 const MAX_PUSHOUT_ITERATIONS = 4;
 
-export function createGame({ fieldHeight, paddleDef, events, ballSpeed = BALL.speed, makeBricks = createBrickGrid }) {
+// ballSpeed 只給測試覆寫用，平常用關卡資料的球速
+export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed }) {
   const field = { width: FIELD.width, height: fieldHeight };
   const state = {
     field,
+    level: null,
     paddle: null,
     balls: [],
     bricks: [],
     score: 0,
     lives: GAME.startLives,
     status: "playing", // playing | cleared | over
-    ballSpeed,
+    ballSpeed: 0,
     lastSubsteps: 0,
   };
+  let parsedLevel = null;
+  let brickLookup = new Map();
 
   function paddleY() {
     return field.height - FIELD.paddleBottomMargin;
   }
 
+  function setBricks(bricks) {
+    state.bricks = bricks;
+    brickLookup = new Map(bricks.map((b) => [`${b.row},${b.col}`, b]));
+  }
+
+  // 重新開始目前這一關
   function reset() {
     state.paddle = createPaddle(paddleDef, field.width, paddleY());
     state.balls = [createStuckBall(state.paddle, BALL.radius)];
-    state.bricks = makeBricks(field.width);
+    setBricks(buildBricks(parsedLevel, field.width, BRICK_LAYOUT));
+    state.ballSpeed = Math.min(ballSpeed ?? state.level.ballSpeed, BALL.maxSpeed);
     state.score = 0;
     state.lives = GAME.startLives;
     state.status = "playing";
-    events.emit("gameReset", { lives: state.lives, score: state.score });
+    events.emit("gameReset", { level: state.level, lives: state.lives, score: state.score });
+  }
+
+  function loadLevel(nextLevel) {
+    parsedLevel = parseLevel(nextLevel);
+    state.level = nextLevel;
+    reset();
   }
 
   // 視窗大小改變時調整場地高度：磚塊貼頂不動、板子貼底
@@ -145,16 +164,26 @@ export function createGame({ fieldHeight, paddleDef, events, ballSpeed = BALL.sp
     ball.vx = v.vx;
     ball.vy = v.vy;
 
-    events.emit("brickHit", { brick, ballId: ball.id });
-    if (brick.breakable) {
-      brick.hp -= 1;
-      if (brick.hp <= 0) {
-        brick.alive = false;
-        state.score += brick.score;
-        events.emit("brickDestroyed", { brick, type: brick.type, score: brick.score, chain: false });
-      }
-    }
+    if (brick.breakable) brick.hp -= 1;
+    events.emit("brickHit", { brick, ballId: ball.id, hp: brick.hp });
+    if (brick.breakable && brick.hp <= 0) destroyBrick(brick);
     return true;
+  }
+
+  function destroyBrick(brick) {
+    brick.alive = false;
+    state.score += brick.score;
+    events.emit("brickDestroyed", { brick, type: brick.type, score: brick.score, chain: false, chainDepth: 0 });
+    if (!brick.explosive) return;
+
+    const { destroyed, detonations } = explode(brick, (row, col) => brickLookup.get(`${row},${col}`));
+    for (const { brick: b, depth } of detonations) events.emit("explosion", { brick: b, depth });
+    for (const { brick: b, depth } of destroyed) {
+      // 連鎖越深分數越高
+      const score = b.score + CHAIN_BONUS * depth;
+      state.score += score;
+      events.emit("brickDestroyed", { brick: b, type: b.type, score, chain: true, chainDepth: depth });
+    }
   }
 
   // 回傳 false 表示球掉出場外
@@ -231,7 +260,7 @@ export function createGame({ fieldHeight, paddleDef, events, ballSpeed = BALL.sp
     }
   }
 
-  reset();
+  loadLevel(level);
 
-  return { state, step, reset, setFieldHeight, isHolding };
+  return { state, step, reset, loadLevel, setFieldHeight, isHolding, setBricks };
 }
