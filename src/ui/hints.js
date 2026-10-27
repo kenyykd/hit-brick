@@ -18,7 +18,20 @@ export const HINTS = {
   tough: { all: () => "紫色磚要打好幾下才會破，上面的點點代表還剩幾下" },
   steel: { all: () => "灰色外框的磚打不破，過關不需要打掉它" },
   explosive: { all: () => "爆炸磚被打破時會炸掉上下左右的磚，還能連鎖引爆" },
+  "powerup-multiball": { all: () => "接住「⁂」膠囊：每顆球分成三顆，要全部掉光才會失去生命" },
+  "powerup-expand": { all: () => "接住「↔」膠囊：板子暫時變長" },
+  "powerup-slow": { all: () => "接住「◔」膠囊：球暫時變慢" },
+  "powerup-fireball": { all: () => "接住「▲」膠囊：火球會直接穿過可破壞的磚，但遇到灰框磚還是會彈回" },
+  "powerup-magnet": {
+    touch: () => "接住「U」膠囊：球碰到板子會黏住，再拉一次彈弓重新瞄準發射",
+    desktop: (k) => `接住「U」膠囊：球碰到板子會黏住，重新瞄準後按 ${keysLabel(k.launchOrSkill)} 或放開滑鼠發射`,
+  },
+  "powerup-extraLife": { all: () => "接住「♥」膠囊：多一條命（最多 5 條）" },
 };
+
+export function powerupHintId(type) {
+  return `powerup-${type}`;
+}
 
 // 這一關有哪些需要說明的磚
 export function levelHintIds(bricks) {

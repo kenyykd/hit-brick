@@ -6,7 +6,7 @@ import { LEVELS } from "./levels/levels.js";
 import { levelRecord, recordLevelClear } from "./save/progress.js";
 import { sync } from "./save/sync.js";
 import { createFlow } from "./state/flow.js";
-import { createHints, levelHintIds } from "./ui/hints.js";
+import { createHints, levelHintIds, powerupHintId } from "./ui/hints.js";
 import { createScreens, renderLevelSelect, renderPaddleSelect, renderResult } from "./ui/screens.js";
 import { createSettings } from "./ui/settings.js";
 
@@ -91,6 +91,7 @@ export function createApp({ dom, game, events, input, store, audio }) {
   events.on("comboChanged", ({ multiplier }) => {
     if (multiplier > 1) hints.request("combo");
   });
+  events.on("capsuleSpawned", ({ type }) => hints.request(powerupHintId(type)));
 
   events.on("levelCleared", ({ level, score }) => {
     const numbered = typeof level.id === "number";

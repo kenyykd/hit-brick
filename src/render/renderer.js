@@ -1,10 +1,14 @@
 // Canvas 繪製。只讀遊戲狀態，不改任何東西；球與板子用 alpha 在上一個與目前 tick 之間內插。
 
 import { angleToUpVector, lerp } from "../core/math.js";
+import { POWERUPS } from "../data/powerups.js";
 import { BRICK_COLORS, THEMES } from "../data/themes.js";
 
 const COLORS = {
   ball: "#f8f9fa",
+  fireball: "#ff922b",
+  magnet: "#f783ac",
+  capsuleIcon: "#141927",
   mark: "rgba(0, 0, 0, 0.35)",
   aim: "rgba(255, 255, 255, 0.75)",
   pull: "rgba(255, 255, 255, 0.3)",
@@ -69,13 +73,33 @@ export function createRenderer(canvas) {
     }
   }
 
-  function drawPaddle(paddle, alpha) {
+  function drawPaddle(paddle, alpha, magnet) {
+    const x = lerp(paddle.prevX, paddle.x, alpha);
     ctx.fillStyle = paddle.def.color;
-    roundRect(lerp(paddle.prevX, paddle.x, alpha), paddle.y, paddle.width, paddle.height, paddle.height / 2);
+    roundRect(x, paddle.y, paddle.width, paddle.height, paddle.height / 2);
+    if (magnet) {
+      ctx.fillStyle = COLORS.magnet;
+      roundRect(x + 6, paddle.y - 2, paddle.width - 12, 4, 2);
+    }
   }
 
-  function drawBalls(balls, alpha) {
-    ctx.fillStyle = COLORS.ball;
+  // 膠囊：顏色加記號，色盲也能分辨
+  function drawCapsules(capsules, alpha) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const c of capsules) {
+      const def = POWERUPS[c.type];
+      const y = lerp(c.prevY, c.y, alpha);
+      ctx.fillStyle = def.color;
+      roundRect(c.x, y, c.w, c.h, c.h / 2);
+      ctx.fillStyle = COLORS.capsuleIcon;
+      ctx.font = `bold ${Math.round(c.h * 0.8)}px system-ui, sans-serif`;
+      ctx.fillText(def.icon, c.x + c.w / 2, y + c.h / 2 + 1);
+    }
+  }
+
+  function drawBalls(balls, alpha, fire) {
+    ctx.fillStyle = fire ? COLORS.fireball : COLORS.ball;
     for (const ball of balls) {
       ctx.beginPath();
       ctx.arc(lerp(ball.prevX, ball.x, alpha), lerp(ball.prevY, ball.y, alpha), ball.r, 0, Math.PI * 2);
@@ -119,9 +143,10 @@ export function createRenderer(canvas) {
     ctx.fillRect(0, 0, width, height);
 
     drawBricks(state.bricks, theme);
-    drawPaddle(state.paddle, alpha);
+    drawCapsules(state.capsules, alpha);
+    drawPaddle(state.paddle, alpha, Object.hasOwn(state.effects, "magnet"));
     drawAim(state.balls, aim);
-    drawBalls(state.balls, alpha);
+    drawBalls(state.balls, alpha, Object.hasOwn(state.effects, "fireball"));
   }
 
   return { ctx, draw };

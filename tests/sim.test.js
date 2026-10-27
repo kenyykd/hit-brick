@@ -11,10 +11,23 @@ import { LEVELS, SANDBOX_LEVEL } from "../src/levels/levels.js";
 import { buildBricks, parseLevel } from "../src/levels/parse.js";
 import { circleRectContact } from "../src/physics/collision.js";
 
-function simulate(level) {
+// 固定種子的亂數，讓開啟道具的模擬每次都一樣
+function seededRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+}
+
+// 開啟道具時：多球會掉球、火球不反彈、減速改變球速，所以只檢查不出界、不卡磚，
+// 生命用完就補回來，速度改對照 currentSpeed()
+function simulate(level, { powerups = false } = {}) {
   const events = createEventBus();
   let lost = 0;
-  events.on("ballLost", () => lost++);
+  let collected = 0;
+  events.on("lifeLost", () => lost++);
+  events.on("powerupCollected", () => collected++);
 
   const game = createGame({
     fieldHeight: FIELD.minHeight,
@@ -22,25 +35,27 @@ function simulate(level) {
     events,
     level,
     ballSpeed: BALL.maxSpeed,
+    drops: powerups,
+    rng: seededRng(level.name.length * 7919),
   });
   const { state } = game;
   const parsed = parseLevel(level);
   const freshBricks = () => buildBricks(parsed, state.field.width, BRICK_LAYOUT);
   const gridBottom = Math.max(...freshBricks().map((b) => b.y + b.h));
   const ticks = 10 * 60 * 120;
-  const minVy = Math.sin(BALL.minVerticalAngleDeg * DEG) * BALL.maxSpeed - 1e-6;
   let refills = 0;
   let failure = null;
 
   for (let t = 0; t < ticks && !failure; t++) {
-    const ball = state.balls[0];
-    // 自動板子：跟著球走，加一點偏移讓反彈角度有變化
+    // 自動板子：跟著最低的球走，加一點偏移讓反彈角度有變化
+    const ball = state.balls.reduce((low, b) => (b.y > low.y ? b : low));
     const offset = Math.sin(t / 97) * 40;
     game.step(LOOP.step, {
       paddleTargetX: ball.x + offset,
       aimAngle: Math.sin(t) * 60 * DEG,
       launch: game.isHolding(),
     });
+    if (powerups) state.lives = 3;
 
     if (state.status === "cleared") {
       // 等球離開磚區再補磚，避免新磚直接生在球上
@@ -55,12 +70,14 @@ function simulate(level) {
       break;
     }
 
+    const speed = game.currentSpeed();
+    const minVy = Math.sin(BALL.minVerticalAngleDeg * DEG) * speed - 1e-6;
     for (const b of state.balls) {
       if (b.stuck) continue;
       if (b.x < b.r - 1e-6 || b.x > state.field.width - b.r + 1e-6 || b.y < b.r - 1e-6) {
         failure = `第 ${t} 個 tick 球出界 (${b.x}, ${b.y})`;
       }
-      if (Math.abs(Math.hypot(b.vx, b.vy) - BALL.maxSpeed) > 1e-6) {
+      if (Math.abs(Math.hypot(b.vx, b.vy) - speed) > 1e-6) {
         failure = `第 ${t} 個 tick 球速錯誤 ${Math.hypot(b.vx, b.vy)}`;
       }
       if (Math.abs(b.vy) < minVy) {
@@ -76,7 +93,7 @@ function simulate(level) {
       }
     }
   }
-  return { failure, lost, refills };
+  return { failure, lost, refills, collected };
 }
 
 describe("10 分鐘最高球速模擬", () => {
@@ -86,6 +103,16 @@ describe("10 分鐘最高球速模擬", () => {
       expect(result.failure).toBeNull();
       expect(result.lost).toBe(0);
       expect(result.refills).toBeGreaterThan(3);
+    });
+  }
+});
+
+describe("開啟道具的 10 分鐘最高球速模擬", () => {
+  for (const level of [LEVELS[4], SANDBOX_LEVEL]) {
+    it(`第 ${level.id} 關（${level.name}）：多球、火球、磁鐵等道具下球不穿磚、不卡磚、不出界`, () => {
+      const result = simulate(level, { powerups: true });
+      expect(result.failure).toBeNull();
+      expect(result.collected).toBeGreaterThan(10);
     });
   }
 });

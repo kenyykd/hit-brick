@@ -12,3 +12,10 @@ export function lerp(a, b, t) {
 export function angleToUpVector(angle) {
   return { x: Math.sin(angle), y: -Math.cos(angle) };
 }
+
+// 把向量旋轉 angle 弧度（畫面座標，正值順時針）
+export function rotate(x, y, angle) {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return { x: x * cos - y * sin, y: x * sin + y * cos };
+}

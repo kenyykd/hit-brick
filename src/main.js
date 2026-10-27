@@ -6,6 +6,7 @@ import { createEventBus } from "./core/events.js";
 import { startLoop } from "./core/loop.js";
 import { DEFAULT_KEYBINDINGS } from "./data/keybindings.js";
 import { PADDLES } from "./data/paddles.js";
+import { POWERUPS } from "./data/powerups.js";
 import { createGame } from "./game/game.js";
 import { createInput } from "./input/input.js";
 import { LEVELS, SANDBOX_LEVEL } from "./levels/levels.js";
@@ -39,11 +40,12 @@ const input = createInput({
   bindings: DEFAULT_KEYBINDINGS,
 });
 
-createHud({
+const hud = createHud({
   scoreEl: $("#hud-score"),
   levelEl: $("#hud-level"),
   livesEl: $("#hud-lives"),
   comboEl: $("#hud-combo"),
+  powerupsEl: $("#hud-powerups"),
   events,
   state: game.state,
 });
@@ -87,6 +89,14 @@ if (debugEnabledFromUrl()) {
   const param = new URLSearchParams(window.location.search).get("level");
   const level = param === "sandbox" ? SANDBOX_LEVEL : LEVELS.find((l) => String(l.id) === param);
   if (level) app.startLevel(level);
+
+  // 數字鍵 1～6 直接給道具，方便實機測試
+  const powerupIds = Object.keys(POWERUPS);
+  window.addEventListener("keydown", (e) => {
+    const match = /^Digit([1-9])$/.exec(e.code);
+    const id = match && powerupIds[Number(match[1]) - 1];
+    if (id && app.flow.isRunning()) game.grantPowerup(id);
+  });
 }
 
 function debugShapes(state) {
@@ -108,12 +118,15 @@ startLoop({
     if (!layout) return;
     debug.frame(now);
     renderer.draw(game.state, { alpha, aim: input.getAim(), layout });
+    hud.update();
     if (debug.enabled) {
       debug.setStats({
         畫面: app.flow.state.screen,
         步數: steps,
         子步驟: game.state.lastSubsteps,
         球數: game.state.balls.length,
+        膠囊: game.state.capsules.length,
+        道具: Object.keys(game.state.effects).join(",") || "-",
         場地: `${game.state.field.width}×${game.state.field.height}`,
       });
       debug.draw(renderer.ctx, debugShapes(game.state));

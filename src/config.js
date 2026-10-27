@@ -43,6 +43,18 @@ export const COMBO = {
   maxMultiplier: 4,
 };
 
+export const POWERUP = {
+  dropRate: 0.12, // 每打破一塊磚掉膠囊的機率
+  pity: 12, // 連續這麼多塊沒掉，這一塊必掉
+  maxCapsules: 3, // 場上同時最多幾顆膠囊
+  capsuleSpeed: 220,
+  capsuleSize: { w: 44, h: 20 },
+  maxBalls: 8,
+  multiballSpreadDeg: 20, // 多球分出去的球偏轉角度
+  expandFactor: 1.5,
+  slowFactor: 0.7,
+};
+
 export const BRICK_LAYOUT = {
   top: 96, // 磚區上緣，上方留給 HUD
   gap: 6, // 只用於繪製的間隙
