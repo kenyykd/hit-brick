@@ -10,7 +10,10 @@ import { createHints, levelHintIds, powerupHintId } from "./ui/hints.js";
 import { createScreens, renderLevelSelect, renderPaddleSelect, renderResult } from "./ui/screens.js";
 import { createSettings } from "./ui/settings.js";
 
-export function createApp({ dom, game, events, input, store, audio }) {
+// 選單類畫面放選單曲；設定頁沿用進來前的狀態（從暫停進設定時音樂維持暫停）
+const MENU_SCREENS = new Set(["menu", "levels", "paddles"]);
+
+export function createApp({ dom, game, events, input, store, audio, music }) {
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
   const keybindings = () => store.data.settings.keybindings ?? DEFAULT_KEYBINDINGS;
   const screens = createScreens(dom.stage);
@@ -28,6 +31,7 @@ export function createApp({ dom, game, events, input, store, audio }) {
     store,
     isTouch,
     onKeybindingsChange: (next) => input.setBindings(next),
+    onChange: () => audio.applySettings(),
   });
 
   function nextLevel() {
@@ -40,8 +44,15 @@ export function createApp({ dom, game, events, input, store, audio }) {
     if (!window.history.state?.hitBrick) window.history.pushState({ hitBrick: true }, "");
   }
 
+  function updateMusic(screen) {
+    if (screen === "game") music.play("game");
+    else if (MENU_SCREENS.has(screen)) music.play("menu");
+    else if (screen !== "settings") music.pause();
+  }
+
   function onFlowChange(state) {
     screens.show(state.screen);
+    updateMusic(state.screen);
     input.setEnabled(state.screen === "game");
     if (state.screen === "countdown") dom.countdown.textContent = String(Math.ceil(state.countdown));
     if (state.screen === "levels") renderLevels();

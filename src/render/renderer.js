@@ -2,7 +2,7 @@
 
 import { angleToUpVector, lerp } from "../core/math.js";
 import { POWERUPS } from "../data/powerups.js";
-import { BRICK_COLORS, THEMES } from "../data/themes.js";
+import { BRICK_COLORS, THEMES, brickColor } from "../data/themes.js";
 
 const COLORS = {
   ball: "#f8f9fa",
@@ -16,6 +16,7 @@ const COLORS = {
 };
 
 const AIM_LENGTH = 150;
+const SHAKE_MARGIN = 20; // 震動時背景多畫一圈，邊緣才不會露出空白
 
 export function createRenderer(canvas) {
   const ctx = canvas.getContext("2d");
@@ -25,13 +26,6 @@ export function createRenderer(canvas) {
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
     else ctx.rect(x, y, w, h);
     ctx.fill();
-  }
-
-  function brickColor(b, theme) {
-    if (b.type === "tough") return BRICK_COLORS.tough[b.hp] ?? BRICK_COLORS.tough[1];
-    if (b.type === "steel") return BRICK_COLORS.steel;
-    if (b.type === "explosive") return BRICK_COLORS.explosive;
-    return theme.rows[b.row % theme.rows.length];
   }
 
   // 除了顏色，每種磚還有形狀記號，色盲也能分辨
@@ -135,18 +129,25 @@ export function createRenderer(canvas) {
     ctx.setLineDash([]);
   }
 
-  function draw(state, { alpha, aim, layout }) {
+  // fx：特效層（可省略）；畫面震動只是整個畫面平移，不影響判定
+  function draw(state, { alpha, aim, layout, fx }) {
     const { width, height } = state.field;
-    ctx.setTransform(layout.pixelWidth / width, 0, 0, layout.pixelHeight / height, 0, 0);
+    const sx = layout.pixelWidth / width;
+    const sy = layout.pixelHeight / height;
+    const shake = fx?.shakeOffset() ?? { x: 0, y: 0 };
+    ctx.setTransform(sx, 0, 0, sy, shake.x * sx, shake.y * sy);
     const theme = THEMES[state.level.theme];
     ctx.fillStyle = theme.field;
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN, width + SHAKE_MARGIN * 2, height + SHAKE_MARGIN * 2);
 
     drawBricks(state.bricks, theme);
+    fx?.drawBrickFlash(ctx);
     drawCapsules(state.capsules, alpha);
     drawPaddle(state.paddle, alpha, Object.hasOwn(state.effects, "magnet"));
+    fx?.drawUnder(ctx);
     drawAim(state.balls, aim);
     drawBalls(state.balls, alpha, Object.hasOwn(state.effects, "fireball"));
+    fx?.drawOver(ctx);
   }
 
   return { ctx, draw };

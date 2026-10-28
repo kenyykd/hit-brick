@@ -116,6 +116,30 @@ body {
   pointer-events: none;
 }
 
+.combo.boosted {
+  color: #ff922b;
+  text-shadow: 0 0 12px rgba(255, 146, 43, 0.7);
+}
+
+.combo.pulse {
+  animation: combo-pulse 0.18s ease-out;
+}
+
+@keyframes combo-pulse {
+  from {
+    transform: scale(1.35);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combo.pulse {
+    animation: none;
+  }
+}
+
 /* 板子下方的空白區，不蓋住磚塊 */
 .powerups {
   position: absolute;

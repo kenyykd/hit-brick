@@ -1,12 +1,16 @@
 import "./style.css";
 import { createApp } from "./app.js";
 import { createAudio } from "./audio/audio.js";
+import { createMusic } from "./audio/music.js";
+import { createSoundFx } from "./audio/sound-fx.js";
 import { FIELD, LOOP } from "./config.js";
 import { createEventBus } from "./core/events.js";
 import { startLoop } from "./core/loop.js";
 import { DEFAULT_KEYBINDINGS } from "./data/keybindings.js";
 import { PADDLES } from "./data/paddles.js";
 import { POWERUPS } from "./data/powerups.js";
+import { createEffects } from "./fx/effects.js";
+import { createAutoQuality } from "./fx/quality.js";
 import { createGame } from "./game/game.js";
 import { createInput } from "./input/input.js";
 import { LEVELS, SANDBOX_LEVEL } from "./levels/levels.js";
@@ -38,6 +42,20 @@ const input = createInput({
   getPaddle: () => game.state.paddle,
   isHolding: game.isHolding,
   bindings: DEFAULT_KEYBINDINGS,
+});
+
+// 表現層：音效、音樂、特效都只訂閱事件，整層拿掉遊戲照常
+const getSettings = () => store.data.settings;
+const audio = createAudio({ getSettings });
+const music = createMusic({ audio });
+createSoundFx({ events, audio });
+const autoQuality = createAutoQuality();
+const fx = createEffects({
+  events,
+  getState: () => game.state,
+  getSettings,
+  reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  getAutoLevel: () => autoQuality.level,
 });
 
 const hud = createHud({
@@ -76,7 +94,8 @@ const app = createApp({
   events,
   input,
   store,
-  audio: createAudio(),
+  audio,
+  music,
 });
 
 const renderer = createRenderer(canvas);
@@ -110,14 +129,23 @@ function debugShapes(state) {
   };
 }
 
+let lastRender = null;
+
 startLoop({
   config: LOOP,
   update: app.update,
   render: ({ alpha, steps, now }) => {
+    const frameTime = lastRender === null ? 0 : (now - lastRender) / 1000;
+    lastRender = now;
+    autoQuality.sample(frameTime);
+    // 特效用畫面時間推進；暫停時凍結，結算畫面時彩帶繼續飄
+    const screen = app.flow.state.screen;
+    if (app.flow.isRunning() || screen === "result") fx.update(Math.min(frameTime, LOOP.maxFrameTime));
+
     const layout = viewport.layout;
     if (!layout) return;
     debug.frame(now);
-    renderer.draw(game.state, { alpha, aim: input.getAim(), layout });
+    renderer.draw(game.state, { alpha, aim: input.getAim(), layout, fx });
     hud.update();
     if (debug.enabled) {
       debug.setStats({
@@ -127,6 +155,7 @@ startLoop({
         球數: game.state.balls.length,
         膠囊: game.state.capsules.length,
         道具: Object.keys(game.state.effects).join(",") || "-",
+        特效: `${fx.qualityLevel()} 粒子 ${fx.particleCount()}`,
         場地: `${game.state.field.width}×${game.state.field.height}`,
       });
       debug.draw(renderer.ctx, debugShapes(game.state));

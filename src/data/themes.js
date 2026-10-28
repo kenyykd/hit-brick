@@ -23,3 +23,11 @@ export const BRICK_COLORS = {
   explosive: "#3b1f1f", // 深色底，配亮橘色核心
   explosiveCore: "#ff7a2f",
 };
+
+// 磚塊的顯示顏色（繪製與破碎粒子共用）
+export function brickColor(brick, theme) {
+  if (brick.type === "tough") return BRICK_COLORS.tough[brick.hp] ?? BRICK_COLORS.tough[1];
+  if (brick.type === "steel") return BRICK_COLORS.steel;
+  if (brick.type === "explosive") return BRICK_COLORS.explosive;
+  return theme.rows[brick.row % theme.rows.length];
+}

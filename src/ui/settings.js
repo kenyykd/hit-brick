@@ -1,8 +1,8 @@
-// 設定頁：各項開關（音效等在階段 5 生效）與電腦按鍵自訂。
+// 設定頁：音效、音樂、特效品質、畫面震動、手機震動各自獨立開關（改了立即生效），與電腦按鍵自訂。
 
 import { ACTION_LABELS, DEFAULT_KEYBINDINGS, keysLabel, rebind } from "../data/keybindings.js";
 
-export function createSettings({ form, keyList, resetKeysButton, keySection, store, isTouch, onKeybindingsChange }) {
+export function createSettings({ form, keyList, resetKeysButton, keySection, store, isTouch, onKeybindingsChange, onChange = () => {} }) {
   let capturing = null; // 正在等待新按鍵的動作
 
   const bindings = () => store.data.settings.keybindings ?? DEFAULT_KEYBINDINGS;
@@ -54,6 +54,7 @@ export function createSettings({ form, keyList, resetKeysButton, keySection, sto
     store.update((s) => {
       s.settings[input.name] = input.type === "checkbox" ? input.checked : input.value;
     });
+    onChange(store.data.settings);
   });
 
   resetKeysButton.addEventListener("click", () => {

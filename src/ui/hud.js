@@ -16,6 +16,7 @@ export function powerupChips(effects) {
 
 export function createHud({ scoreEl, levelEl, livesEl, comboEl, powerupsEl, events, state }) {
   let lastPowerups = "";
+  let lastCombo = 0;
 
   function render() {
     scoreEl.textContent = `分數 ${state.score}`;
@@ -24,12 +25,21 @@ export function createHud({ scoreEl, levelEl, livesEl, comboEl, powerupsEl, even
   }
 
   function renderCombo({ combo, multiplier }) {
+    const increased = combo > lastCombo;
+    lastCombo = combo;
     if (combo < 2) {
       comboEl.hidden = true;
       return;
     }
     comboEl.textContent = multiplier > 1 ? `${combo} 連擊 ×${multiplier}` : `${combo} 連擊`;
     comboEl.hidden = false;
+    comboEl.classList.toggle("boosted", multiplier > 1);
+    if (increased) {
+      // 重新觸發放大動畫
+      comboEl.classList.remove("pulse");
+      void comboEl.offsetWidth;
+      comboEl.classList.add("pulse");
+    }
   }
 
   // 每幀呼叫；只在道具清單或秒數改變時才重建
