@@ -64,6 +64,8 @@ const hud = createHud({
   livesEl: $("#hud-lives"),
   comboEl: $("#hud-combo"),
   powerupsEl: $("#hud-powerups"),
+  skillButton: $("#skill-button"),
+  getSkill: () => game.skillDef(),
   events,
   state: game.state,
 });
@@ -96,6 +98,7 @@ const app = createApp({
   store,
   audio,
   music,
+  unlockAll: debugEnabledFromUrl(),
 });
 
 const renderer = createRenderer(canvas);
@@ -109,12 +112,14 @@ if (debugEnabledFromUrl()) {
   const level = param === "sandbox" ? SANDBOX_LEVEL : LEVELS.find((l) => String(l.id) === param);
   if (level) app.startLevel(level);
 
-  // 數字鍵 1～6 直接給道具，方便實機測試
+  // 數字鍵 1～6 直接給道具、0 直接充滿技能能量，方便實機測試；所有板子都能選
   const powerupIds = Object.keys(POWERUPS);
   window.addEventListener("keydown", (e) => {
+    if (!app.flow.isRunning()) return;
+    if (e.code === "Digit0") game.addEnergy(1);
     const match = /^Digit([1-9])$/.exec(e.code);
     const id = match && powerupIds[Number(match[1]) - 1];
-    if (id && app.flow.isRunning()) game.grantPowerup(id);
+    if (id) game.grantPowerup(id);
   });
 }
 

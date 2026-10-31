@@ -5,6 +5,7 @@
 import { BALL } from "../config.js";
 import { clamp } from "../core/math.js";
 import { POWERUPS } from "../data/powerups.js";
+import { SKILLS } from "../data/skills.js";
 import { BRICK_COLORS, THEMES, brickColor } from "../data/themes.js";
 import { createPool } from "./pool.js";
 import { resolveQuality } from "./quality.js";
@@ -117,17 +118,35 @@ export function createEffects({ events, getState, getSettings, reducedMotion = f
     buzz(VIBRATE_MS.lifeLost);
   });
 
-  events.on("powerupCollected", ({ type }) => {
-    const def = POWERUPS[type];
+  // 光環：粒子從板子往四周平均散開，不受重力，並在板子上方飄字
+  function paddleRing(color, label) {
     const { paddle } = getState();
     const cx = paddle.x + paddle.width / 2;
     const count = quality().particlesPerBrick * 2;
-    // 光環：粒子往四周平均散開，不受重力
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
-      spawnParticle(cx, paddle.y, { vx: Math.cos(angle) * 220, vy: Math.sin(angle) * 220, life: 0.45, size: 4, color: def.color, gravity: 0 });
+      spawnParticle(cx, paddle.y, { vx: Math.cos(angle) * 220, vy: Math.sin(angle) * 220, life: 0.45, size: 4, color, gravity: 0 });
     }
-    floatText(cx, paddle.y - 24, `${def.icon} ${def.name}`, def.color, 20);
+    floatText(cx, paddle.y - 24, label, color, 20);
+  }
+
+  events.on("powerupCollected", ({ type }) => {
+    const def = POWERUPS[type];
+    paddleRing(def.color, `${def.icon} ${def.name}`);
+  });
+
+  events.on("skillCast", ({ skill }) => {
+    const def = SKILLS[skill];
+    paddleRing(def.color, `${def.icon} ${def.name}`);
+  });
+
+  events.on("skillReady", ({ skill }) => {
+    const { paddle } = getState();
+    floatText(paddle.x + paddle.width / 2, paddle.y - 24, "技能就緒", SKILLS[skill].color, 18);
+  });
+
+  events.on("shieldHit", ({ x, y }) => {
+    burst(x, y, quality().particlesPerBrick * 2, SKILLS.shield.color, 320);
   });
 
   events.on("levelCleared", () => {

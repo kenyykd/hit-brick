@@ -7,6 +7,7 @@ import { createGame } from "../src/game/game.js";
 import { addTimeEnergy, findBoltHit } from "../src/game/skills.js";
 import { defaultSave } from "../src/save/save.js";
 import { isPaddleUnlocked, starsNeededForPaddle, totalStars } from "../src/save/progress.js";
+import { skillButtonView } from "../src/ui/hud.js";
 
 const level = (layout) => ({ id: 1, name: "測試", theme: "rainbow", ballSpeed: 600, targetScore: 0, layout });
 
@@ -214,6 +215,14 @@ describe("雷射", () => {
   it("addTimeEnergy 不超過上限、超過上限時不再增加", () => {
     expect(addTimeEnergy(0.29, 0.05, 0.3)).toBeCloseTo(0.3);
     expect(addTimeEnergy(0.6, 0.05, 0.3)).toBe(0.6);
+  });
+});
+
+describe("技能按鈕顯示", () => {
+  it("沒有技能時隱藏；能量顯示百分比，滿了顯示技能名稱並發光", () => {
+    expect(skillButtonView(null, 1)).toBeNull();
+    expect(skillButtonView(SKILLS.laser, 0.426)).toMatchObject({ label: "42%", fill: 42, ready: false });
+    expect(skillButtonView(SKILLS.laser, 1)).toMatchObject({ label: "雷射", fill: 100, ready: true });
   });
 });
 

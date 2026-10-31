@@ -44,17 +44,34 @@ export function renderLevelSelect(container, { levels, save, onPick }) {
   }
 }
 
-// 選板子畫面骨架：目前只有標準板，其他板子在階段 6、7 加入
-export function renderPaddleSelect(container, { paddles, selectedId, onPick }) {
+// 選板子：外觀、技能說明；未解鎖的顯示剪影與還差幾顆星
+// starsNeeded(paddleId)：還差幾顆星，0 表示已解鎖
+export function renderPaddleSelect(container, { paddles, selectedId, starsNeeded, onPick }) {
   container.replaceChildren();
+  const widest = Math.max(...Object.values(paddles).map((p) => p.width));
   for (const paddle of Object.values(paddles)) {
+    const needed = starsNeeded(paddle.id);
+    const locked = needed > 0;
     const button = el("button", "paddle-card");
     button.type = "button";
+    button.disabled = locked;
+    button.classList.toggle("locked", locked);
     button.classList.toggle("selected", paddle.id === selectedId);
     button.setAttribute("aria-pressed", String(paddle.id === selectedId));
+
+    // 預覽條的長度反映板子寬度；未解鎖時是剪影
     const preview = el("span", "paddle-preview");
-    preview.style.background = paddle.color;
-    button.append(preview, el("span", "paddle-name", paddle.name), el("span", "paddle-skill", "技能：無"));
+    preview.style.background = locked ? "#2b3040" : paddle.color;
+    preview.style.width = `${(paddle.width / widest) * 100}%`;
+    const previewBox = el("span", "paddle-preview-box");
+    previewBox.append(preview);
+
+    button.append(
+      previewBox,
+      el("span", "paddle-name", locked ? `${paddle.name}（未解鎖）` : paddle.name),
+      el("span", "paddle-skill", locked ? `還差 ${needed} 顆星解鎖` : paddle.description),
+    );
+    button.setAttribute("aria-label", locked ? `${paddle.name}，還差 ${needed} 顆星解鎖` : `${paddle.name}：${paddle.description}`);
     button.addEventListener("click", () => onPick(paddle));
     container.append(button);
   }

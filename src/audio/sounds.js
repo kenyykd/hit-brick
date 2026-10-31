@@ -14,6 +14,10 @@ export const SOUNDS = {
   powerup: { wave: "square", notes: [523, 784, 1047], noteLength: 0.06, volume: 0.2 },
   powerupEnd: { wave: "triangle", from: 600, to: 300, duration: 0.15, volume: 0.18 },
   lifeLost: { wave: "sawtooth", from: 440, to: 110, duration: 0.5, volume: 0.25 },
+  skillReady: { wave: "sine", notes: [784, 1175], noteLength: 0.08, volume: 0.2 },
+  skillCast: { wave: "square", notes: [392, 587, 784], noteLength: 0.05, volume: 0.2 },
+  shieldHit: { wave: "triangle", from: 520, to: 880, duration: 0.14, volume: 0.25 },
+  laser: { wave: "square", from: 1400, to: 900, duration: 0.05, volume: 0.07 },
   clear: { wave: "square", notes: [523, 659, 784, 1047], noteLength: 0.09, volume: 0.22 },
   gameOver: { wave: "triangle", notes: [392, 330, 262, 196], noteLength: 0.16, volume: 0.3 },
 };
@@ -21,7 +25,7 @@ export const SOUNDS = {
 export const AUDIO_LIMITS = {
   maxVoices: 8, // 同時發聲數上限
   // 同種音效的最短間隔（秒），爆炸連鎖時不會疊成爆音
-  minInterval: { default: 0.03, brick: 0.035, wall: 0.05, explode: 0.12, launch: 0.05 },
+  minInterval: { default: 0.03, brick: 0.035, wall: 0.05, explode: 0.12, launch: 0.05, laser: 0.08 },
 };
 
 export const MAX_COMBO_SEMITONES = 12;

@@ -3,7 +3,7 @@
 import { DEFAULT_KEYBINDINGS } from "./data/keybindings.js";
 import { PADDLES } from "./data/paddles.js";
 import { LEVELS } from "./levels/levels.js";
-import { levelRecord, recordLevelClear } from "./save/progress.js";
+import { isPaddleUnlocked, levelRecord, recordLevelClear, starsNeededForPaddle } from "./save/progress.js";
 import { sync } from "./save/sync.js";
 import { createFlow } from "./state/flow.js";
 import { createHints, levelHintIds, powerupHintId } from "./ui/hints.js";
@@ -13,7 +13,8 @@ import { createSettings } from "./ui/settings.js";
 // 選單類畫面放選單曲；設定頁沿用進來前的狀態（從暫停進設定時音樂維持暫停）
 const MENU_SCREENS = new Set(["menu", "levels", "paddles"]);
 
-export function createApp({ dom, game, events, input, store, audio, music }) {
+// unlockAll：除錯模式下所有板子都能用，方便測試
+export function createApp({ dom, game, events, input, store, audio, music, unlockAll = false }) {
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
   const keybindings = () => store.data.settings.keybindings ?? DEFAULT_KEYBINDINGS;
   const screens = createScreens(dom.stage);
@@ -66,11 +67,22 @@ export function createApp({ dom, game, events, input, store, audio, music }) {
     renderLevelSelect(dom.levelGrid, { levels: LEVELS, save: store.data, onPick: startLevel });
   }
 
+  const starsNeeded = (paddleId) => (unlockAll ? 0 : starsNeededForPaddle(store.data, paddleId));
+
+  // 存檔裡選的板子如果還沒解鎖（例如在除錯模式選的），改用標準板
+  function selectedPaddle() {
+    const id = store.data.selectedPaddle;
+    const unlocked = unlockAll || isPaddleUnlocked(store.data, id);
+    return (unlocked && PADDLES[id]) || PADDLES.standard;
+  }
+
   function renderPaddles() {
     renderPaddleSelect(dom.paddleList, {
       paddles: PADDLES,
-      selectedId: store.data.selectedPaddle,
+      selectedId: selectedPaddle().id,
+      starsNeeded,
       onPick: (paddle) => {
+        if (starsNeeded(paddle.id) > 0) return;
         store.update((s) => {
           s.selectedPaddle = paddle.id;
         });
@@ -80,7 +92,7 @@ export function createApp({ dom, game, events, input, store, audio, music }) {
   }
 
   function startLevel(level) {
-    game.loadLevel(level, PADDLES[store.data.selectedPaddle] ?? PADDLES.standard);
+    game.loadLevel(level, selectedPaddle());
     input.reset();
     hints.clear();
     flow.go("game");
@@ -103,6 +115,7 @@ export function createApp({ dom, game, events, input, store, audio, music }) {
     if (multiplier > 1) hints.request("combo");
   });
   events.on("capsuleSpawned", ({ type }) => hints.request(powerupHintId(type)));
+  events.on("skillReady", () => hints.request("skill"));
 
   events.on("levelCleared", ({ level, score }) => {
     const numbered = typeof level.id === "number";
@@ -147,6 +160,7 @@ export function createApp({ dom, game, events, input, store, audio, music }) {
     menu: () => flow.go("menu"),
     "close-settings": () => flow.closeSettings(),
     pause: () => flow.pause(),
+    skill: () => input.requestSkill(),
     resume,
     restart: restartLevel,
     next: () => startLevel(nextLevel()),

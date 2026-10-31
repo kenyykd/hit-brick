@@ -27,6 +27,10 @@ export const HINTS = {
     desktop: (k) => `接住「U」膠囊：球碰到板子會黏住，重新瞄準後按 ${keysLabel(k.launchOrSkill)} 或放開滑鼠發射`,
   },
   "powerup-extraLife": { all: () => "接住「♥」膠囊：多一條命（最多 5 條）" },
+  skill: {
+    touch: () => "技能能量滿了！按右下角發光的按鈕施放技能",
+    desktop: (k) => `技能能量滿了！按 ${keysLabel(k.launchOrSkill)}、滑鼠右鍵或右下角的按鈕施放技能`,
+  },
 };
 
 export function powerupHintId(type) {

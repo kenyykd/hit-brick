@@ -163,6 +163,97 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* 技能按鈕在右下角時，道具列讓出右邊的空間 */
+#stage:has(.skill-button:not([hidden])) .powerups {
+  right: 72px;
+}
+
+/* 技能按鈕：右下角，能量從下往上填滿，滿了會發光。
+   尺寸要讓 360px 寬的手機上也待在板子下方（板子離場地底部約 94 邏輯單位） */
+.skill-button {
+  --skill-color: var(--accent);
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border: 2px solid var(--skill-color);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.skill-button[hidden],
+#stage:not([data-screen="game"]) .skill-button {
+  display: none;
+}
+
+.skill-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  background: var(--skill-color);
+  opacity: 0.35;
+  transition: height 0.15s linear;
+}
+
+.skill-icon {
+  position: relative;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.skill-label {
+  position: relative;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.skill-button.ready {
+  color: #0b0e16;
+  box-shadow: 0 0 16px 2px var(--skill-color);
+  animation: skill-glow 1s ease-in-out infinite alternate;
+}
+
+.skill-button.ready .skill-fill {
+  opacity: 1;
+}
+
+@keyframes skill-glow {
+  from {
+    box-shadow: 0 0 8px 0 var(--skill-color);
+  }
+  to {
+    box-shadow: 0 0 20px 4px var(--skill-color);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-button.ready {
+    animation: none;
+  }
+
+  .skill-fill {
+    transition: none;
+  }
+}
+
+.skill-button:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
 /* 放在瞄準線上方的空白區，不蓋住板子和球 */
 .hint {
   position: absolute;
@@ -378,8 +469,18 @@ body {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
-.paddle-preview {
+.panel .paddle-card.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.paddle-preview-box {
   grid-row: span 2;
+  display: flex;
+  justify-content: center;
+}
+
+.paddle-preview {
   height: 14px;
   border-radius: 7px;
 }

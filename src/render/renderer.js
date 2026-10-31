@@ -2,6 +2,7 @@
 
 import { angleToUpVector, lerp } from "../core/math.js";
 import { POWERUPS } from "../data/powerups.js";
+import { SKILLS } from "../data/skills.js";
 import { BRICK_COLORS, THEMES, brickColor } from "../data/themes.js";
 
 const COLORS = {
@@ -92,6 +93,24 @@ export function createRenderer(canvas) {
     }
   }
 
+  // 護盾：板子下方一條橫跨場地的亮線
+  function drawShield(state) {
+    if (!state.shield) return;
+    const y = state.field.height - SKILLS.shield.bottomMargin;
+    ctx.fillStyle = SKILLS.shield.color;
+    ctx.globalAlpha = 0.25;
+    ctx.fillRect(0, y - 4, state.field.width, 12);
+    ctx.globalAlpha = 1;
+    ctx.fillRect(0, y, state.field.width, 4);
+  }
+
+  function drawBolts(bolts, alpha) {
+    ctx.fillStyle = SKILLS.laser.color;
+    for (const bolt of bolts) {
+      roundRect(bolt.x, lerp(bolt.prevY, bolt.y, alpha), bolt.w, bolt.h, bolt.w / 2);
+    }
+  }
+
   function drawBalls(balls, alpha, fire) {
     ctx.fillStyle = fire ? COLORS.fireball : COLORS.ball;
     for (const ball of balls) {
@@ -143,6 +162,8 @@ export function createRenderer(canvas) {
     drawBricks(state.bricks, theme);
     fx?.drawBrickFlash(ctx);
     drawCapsules(state.capsules, alpha);
+    drawShield(state);
+    drawBolts(state.bolts, alpha);
     drawPaddle(state.paddle, alpha, Object.hasOwn(state.effects, "magnet"));
     fx?.drawUnder(ctx);
     drawAim(state.balls, aim);

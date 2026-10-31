@@ -21,6 +21,11 @@ export function createSoundFx({ events, audio }) {
   on("capsuleSpawned", () => audio.play("capsule"));
   on("powerupCollected", () => audio.play("powerup"));
   on("powerupExpired", () => audio.play("powerupEnd"));
+  on("skillReady", () => audio.play("skillReady"));
+  on("skillCast", () => audio.play("skillCast"));
+  on("skillEnded", () => audio.play("powerupEnd"));
+  on("shieldHit", () => audio.play("shieldHit"));
+  on("laserFired", () => audio.play("laser"));
   on("lifeLost", () => audio.play("lifeLost"));
   on("levelCleared", () => audio.play("clear"));
   on("gameOver", () => audio.play("gameOver"));

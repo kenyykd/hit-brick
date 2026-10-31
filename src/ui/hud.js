@@ -1,4 +1,4 @@
-// 遊戲中 HUD：分數、關卡、生命、連擊、啟用中的道具。全部用 textContent，不拼 HTML。
+// 遊戲中 HUD：分數、關卡、生命、連擊、啟用中的道具、技能能量。全部用 textContent，不拼 HTML。
 
 import { POWERUPS } from "../data/powerups.js";
 
@@ -14,9 +14,42 @@ export function powerupChips(effects) {
   });
 }
 
-export function createHud({ scoreEl, levelEl, livesEl, comboEl, powerupsEl, events, state }) {
+// 技能按鈕顯示的內容；沒有技能的板子回傳 null（按鈕隱藏）
+export function skillButtonView(skill, energy) {
+  if (!skill) return null;
+  const percent = Math.floor(Math.min(energy, 1) * 100);
+  return {
+    icon: skill.icon,
+    label: percent >= 100 ? skill.name : `${percent}%`,
+    fill: percent,
+    ready: percent >= 100,
+    color: skill.color,
+  };
+}
+
+export function createHud({ scoreEl, levelEl, livesEl, comboEl, powerupsEl, skillButton, getSkill, events, state }) {
   let lastPowerups = "";
   let lastCombo = 0;
+  let lastSkill = "";
+  const skillFill = skillButton.querySelector(".skill-fill");
+  const skillIcon = skillButton.querySelector(".skill-icon");
+  const skillLabel = skillButton.querySelector(".skill-label");
+
+  // 能量條與技能按鈕：只在內容改變時才更新 DOM
+  function updateSkill() {
+    const view = skillButtonView(getSkill(), state.energy);
+    const key = view ? `${view.icon}|${view.label}|${view.fill}` : "none";
+    if (key === lastSkill) return;
+    lastSkill = key;
+    skillButton.hidden = !view;
+    if (!view) return;
+    skillButton.style.setProperty("--skill-color", view.color);
+    skillButton.classList.toggle("ready", view.ready);
+    skillButton.setAttribute("aria-label", view.ready ? `施放${view.label}` : `技能能量 ${view.label}`);
+    skillFill.style.height = `${view.fill}%`;
+    skillIcon.textContent = view.icon;
+    skillLabel.textContent = view.label;
+  }
 
   function render() {
     scoreEl.textContent = `分數 ${state.score}`;
@@ -44,6 +77,7 @@ export function createHud({ scoreEl, levelEl, livesEl, comboEl, powerupsEl, even
 
   // 每幀呼叫；只在道具清單或秒數改變時才重建
   function update() {
+    updateSkill();
     const chips = powerupChips(state.effects);
     const key = chips.map((c) => c.text).join("|");
     if (key === lastPowerups) return;

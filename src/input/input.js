@@ -225,5 +225,10 @@ export function createInput({ element, canvas, getField, getPaddle, isHolding, b
     held.clear();
   }
 
-  return { poll, getAim, reset, setEnabled, setBindings };
+  // 手機的技能按鈕：和鍵盤、右鍵一樣排進下一個 tick
+  function requestSkill() {
+    if (enabled) s.skill = true;
+  }
+
+  return { poll, getAim, reset, setEnabled, setBindings, requestSkill };
 }
