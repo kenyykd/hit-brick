@@ -35,6 +35,7 @@ npm run dev        # 開發伺服器（含區網位址，手機可連）
 npm run build      # 打包到 dist/
 npm run preview    # 預覽打包結果
 npm test           # 執行測試
+npm run balance    # 平衡報告：自動玩家打完每一關，列出清關時間與分數
 ```
 
 ### 手機實機測試
