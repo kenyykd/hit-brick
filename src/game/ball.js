@@ -15,6 +15,7 @@ export function createStuckBall(paddle, radius, stuckOffset = 0) {
     r: radius,
     stuck: true,
     stuckOffset,
+    idle: 0, // 多久沒碰到板子或打到可破壞的磚（秒，防卡死用）
   };
   followPaddle(ball, paddle);
   ball.prevX = ball.x;
@@ -24,7 +25,7 @@ export function createStuckBall(paddle, radius, stuckOffset = 0) {
 
 // 從另一顆球的位置分出一顆新球（多球道具）
 export function splitBall(source, vx, vy) {
-  return { ...source, id: nextId++, vx, vy, stuck: false, stuckOffset: 0 };
+  return { ...source, id: nextId++, vx, vy, stuck: false, stuckOffset: 0, idle: 0 };
 }
 
 export function followPaddle(ball, paddle) {

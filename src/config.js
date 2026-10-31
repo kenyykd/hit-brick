@@ -19,6 +19,9 @@ export const BALL = {
   maxSpeed: 1400,
   maxSubstepRatio: 0.5, // 每個子步驟最多移動半個球半徑
   minVerticalAngleDeg: 15, // 與水平線的最小夾角
+  // 防卡死：球太久沒碰到板子也沒打到可破壞的磚（例如在不可破壞磚上方繞固定的軌道），
+  // 下次反彈時隨機偏轉一點角度；沒進展就每隔 retrySeconds 再偏一次
+  antiLoop: { idleSeconds: 6, retrySeconds: 1, nudgeMinDeg: 4, nudgeMaxDeg: 10 },
 };
 
 export const LAUNCH = {
@@ -41,7 +44,7 @@ export const GAME = {
 // 星星：過關 1 顆、達到目標分數 1 顆、沒失去生命 1 顆。
 // 目標分數 = 可破壞磚的基礎總分 × 倍數（要靠連擊才拿得到），關卡可個別覆寫
 export const STARS = {
-  targetMultiplier: 1.6,
+  targetMultiplier: 1.2, // 依平衡報告：普通打法約 1.0～1.3 倍，要有連擊才拿得到
 };
 
 export const COMBO = {

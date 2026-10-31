@@ -1,14 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { BALL, BRICK_LAYOUT, FIELD } from "../src/config.js";
-import { LEVELS, SANDBOX_LEVEL } from "../src/levels/levels.js";
+import { LEVELS, LEVEL_SPEED_CAP, SANDBOX_LEVEL } from "../src/levels/levels.js";
 import { LevelError, buildBricks, isLevelSolvable, parseLevel } from "../src/levels/parse.js";
 
 const base = { id: 99, name: "測試", theme: "rainbow", ballSpeed: 600, targetScore: 0 };
 const level = (layout, extra = {}) => ({ ...base, layout, ...extra });
 
 describe("內建關卡", () => {
-  it("編號從 1 開始連續", () => {
+  it("編號從 1 開始連續，首發 20 關", () => {
     expect(LEVELS.map((l) => l.id)).toEqual(LEVELS.map((_, i) => i + 1));
+    expect(LEVELS).toHaveLength(20);
+  });
+
+  it("球速隨關卡只升不降，而且不超過上限", () => {
+    for (let i = 1; i < LEVELS.length; i++) expect(LEVELS[i].ballSpeed).toBeGreaterThanOrEqual(LEVELS[i - 1].ballSpeed);
+    expect(Math.max(...LEVELS.map((l) => l.ballSpeed))).toBeLessThanOrEqual(LEVEL_SPEED_CAP);
+  });
+
+  it("引入節奏：每種特殊磚第一次出現的關卡", () => {
+    const firstLevel = (char) => LEVELS.find((l) => l.layout.includes(char))?.id;
+    expect(Math.min(firstLevel("2"), firstLevel("3"))).toBe(6);
+    expect(firstLevel("#")).toBe(9);
+    expect(firstLevel("*")).toBe(12);
   });
 
   for (const l of [...LEVELS, SANDBOX_LEVEL]) {

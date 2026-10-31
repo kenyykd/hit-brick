@@ -46,6 +46,43 @@ describe("板子", () => {
   });
 });
 
+describe("防卡死", () => {
+  // 一整排不可破壞磚，球在它上方垂直上下彈：不處理的話會永遠循環
+  const trapLevel = { id: 99, name: "t", theme: "rainbow", ballSpeed: 600, layout: ".........\n#########\nNNNNNNNNN" };
+
+  it("球太久沒碰到板子也沒打到可破壞的磚，反彈時會隨機偏轉角度，速度不變", () => {
+    const events = createEventBus();
+    let nudges = 0;
+    events.on("ballNudged", () => nudges++);
+    const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.standard, events, level: trapLevel, drops: false });
+    const ball = game.state.balls[0];
+    Object.assign(ball, { stuck: false, x: 270, y: 60, prevX: 270, prevY: 60, vx: 0, vy: -600 });
+    for (let i = 0; i < 5 * 120; i++) step(game);
+    expect(nudges).toBe(0);
+    expect(ball.vx).toBe(0);
+    for (let i = 0; i < 3 * 120; i++) step(game);
+    expect(nudges).toBeGreaterThan(0);
+    expect(Math.abs(ball.vx)).toBeGreaterThan(0);
+    expect(Math.hypot(ball.vx, ball.vy)).toBeCloseTo(600);
+  });
+
+  it("正常打磚時不會觸發", () => {
+    const events = createEventBus();
+    let nudges = 0;
+    let offset = 0;
+    let seed = 7;
+    const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32) * 2 - 1;
+    events.on("ballNudged", () => nudges++);
+    events.on("paddleHit", () => (offset = rand() * 35)); // 每次接球換個位置，像真人一樣
+    const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.standard, events, level: LEVELS[0], drops: false });
+    for (let t = 0; t < 180 * 120 && game.state.status === "playing"; t++) {
+      step(game, { paddleTargetX: game.state.balls[0].x + offset, launch: game.isHolding(), aimAngle: 0.3 });
+    }
+    expect(game.state.status).toBe("cleared");
+    expect(nudges).toBe(0);
+  });
+});
+
 describe("發射", () => {
   it("任何瞄準角度都往上發射", () => {
     for (const deg of [-200, -89, -70, 0, 45, 70, 89, 180]) {

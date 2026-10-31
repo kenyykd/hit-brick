@@ -143,6 +143,19 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     }
   }
 
+  // 防卡死：球太久沒碰到板子也沒打到可破壞的磚，就在這次反彈後隨機偏轉一點角度，
+  // 打破在不可破壞磚上方繞固定軌道的循環。沒進展的話每隔 retrySeconds 再偏一次
+  function maybeNudge(ball) {
+    const { idleSeconds, retrySeconds, nudgeMinDeg, nudgeMaxDeg } = BALL.antiLoop;
+    if (!(ball.idle >= idleSeconds)) return;
+    const deg = nudgeMinDeg + rng() * (nudgeMaxDeg - nudgeMinDeg);
+    const v = rotate(ball.vx, ball.vy, (rng() < 0.5 ? -1 : 1) * deg * DEG);
+    ball.vx = v.x;
+    ball.vy = v.y;
+    ball.idle = idleSeconds - retrySeconds;
+    events.emit("ballNudged", { ballId: ball.id });
+  }
+
   // 碰撞後把速度修回目標速度，並避免太水平
   function fixVelocity(ball) {
     let v = normalizeSpeed(ball.vx, ball.vy, currentSpeed());
@@ -180,6 +193,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
       // 打到上緣：依擊中位置決定角度；磁鐵生效時黏住，等玩家重新瞄準發射
       ball.y = paddle.y - ball.r;
       if (ball.vy > 0) {
+        ball.idle = 0;
         const center = paddleX + paddle.width / 2;
         if (hasEffect("magnet")) {
           ball.stuck = true;
@@ -211,6 +225,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     for (const brick of state.bricks) {
       if (!brick.alive || !brick.breakable) continue;
       if (!circleRectContact(ball.x, ball.y, ball.r, brick)) continue;
+      ball.idle = 0;
       brick.hp = 0;
       events.emit("brickHit", { brick, ballId: ball.id, hp: 0, fire: true });
       destroyBrick(brick);
@@ -245,7 +260,10 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     ball.vx = v.vx;
     ball.vy = v.vy;
 
-    if (brick.breakable) brick.hp -= 1;
+    if (brick.breakable) {
+      brick.hp -= 1;
+      ball.idle = 0;
+    }
     events.emit("brickHit", { brick, ballId: ball.id, hp: brick.hp });
     if (brick.breakable && brick.hp <= 0) destroyBrick(brick);
     return true;
@@ -486,6 +504,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     const distance = Math.hypot(ball.vx, ball.vy) * dt;
     const n = substepCount(Math.max(distance, paddleMove), ball.r, BALL.maxSubstepRatio);
     state.lastSubsteps = Math.max(state.lastSubsteps, n);
+    ball.idle += dt;
 
     for (let i = 1; i <= n; i++) {
       // 板子位置也切成子步驟，快速移動時才不會穿過球
@@ -502,7 +521,10 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
       }
       bounced = collideBricks(ball) || bounced;
       bounced = collideShield(ball, beforeY) || bounced;
-      if (bounced) fixVelocity(ball);
+      if (bounced) {
+        maybeNudge(ball);
+        fixVelocity(ball);
+      }
 
       if (ball.y - ball.r > field.height) return false;
     }

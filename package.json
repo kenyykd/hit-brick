@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "balance": "node scripts/balance.mjs"
   },
   "devDependencies": {
     "vite": "^8.3.5",
