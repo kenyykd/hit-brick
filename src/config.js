@@ -55,6 +55,13 @@ export const POWERUP = {
   slowFactor: 0.7,
 };
 
+// 技能能量 0～1：打磚為主、時間為輔；時間最多只能充到 timeCap，不打磚就不能一直放技能
+export const SKILL = {
+  energyPerBrick: 1 / 15, // 約打 15 塊磚集滿（雷射打掉的磚不算）
+  energyPerSecond: 0.01, // 球在飛的時候才會隨時間充能
+  timeCap: 0.3,
+};
+
 export const BRICK_LAYOUT = {
   top: 96, // 磚區上緣，上方留給 HUD
   gap: 6, // 只用於繪製的間隙

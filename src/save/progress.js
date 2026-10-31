@@ -1,4 +1,20 @@
-// 關卡進度（純函式）：線性解鎖、各關最高分。星星在階段 7 加入。
+// 關卡進度（純函式）：線性解鎖、各關最高分、板子解鎖。星星的計算在階段 7 加入。
+
+import { UNLOCKS } from "../data/unlocks.js";
+
+export function totalStars(save) {
+  return Object.values(save.levels).reduce((sum, record) => sum + record.stars, 0);
+}
+
+// 回傳還差幾顆星才能用這塊板子（0 表示已解鎖）
+export function starsNeededForPaddle(save, paddleId) {
+  const required = UNLOCKS.paddles[paddleId] ?? Infinity;
+  return Math.max(0, required - totalStars(save));
+}
+
+export function isPaddleUnlocked(save, paddleId) {
+  return starsNeededForPaddle(save, paddleId) === 0;
+}
 
 export function isLevelUnlocked(save, levelId) {
   return levelId <= save.unlockedLevel;

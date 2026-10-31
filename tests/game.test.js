@@ -56,12 +56,14 @@ describe("發射", () => {
     }
   });
 
-  it("沒持球時按發射鍵改成施放技能事件", () => {
+  it("沒持球時按發射鍵改成施放技能", () => {
     const events = createEventBus();
     let skill = 0;
-    events.on("skillRequested", () => skill++);
-    const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.standard, events, level: LEVELS[0] });
+    events.on("skillCast", () => skill++);
+    const game = createGame({ fieldHeight: FIELD.minHeight, paddleDef: PADDLES.shield, events, level: LEVELS[0] });
+    game.addEnergy(1);
     step(game, { launch: true, aimAngle: 0 });
+    expect(skill).toBe(0); // 持球時是發射
     step(game, { skill: true });
     expect(skill).toBe(1);
   });

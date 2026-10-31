@@ -1,9 +1,10 @@
 // 遊戲邏輯：每次 step 推進一個固定步長的 tick。不碰 DOM，可以在測試裡直接跑。
 
-import { BALL, BRICK_LAYOUT, FIELD, GAME, LAUNCH, POWERUP } from "../config.js";
+import { BALL, BRICK_LAYOUT, FIELD, GAME, LAUNCH, POWERUP, SKILL } from "../config.js";
 import { DEG, angleToUpVector, clamp, lerp, rotate } from "../core/math.js";
 import { CHAIN_BONUS } from "../data/brick-types.js";
 import { POWERUPS } from "../data/powerups.js";
+import { SKILLS } from "../data/skills.js";
 import { buildBricks, parseLevel } from "../levels/parse.js";
 import { circleRectContact, findNearestHit } from "../physics/collision.js";
 import {
@@ -18,6 +19,7 @@ import { explode } from "./explosion.js";
 import { createPaddle, paddleCenter, updatePaddle } from "./paddle.js";
 import { createCapsule, createDropper, updateCapsules } from "./powerups.js";
 import { comboMultiplier } from "./scoring.js";
+import { addTimeEnergy, createBolt, findBoltHit } from "./skills.js";
 
 const MAX_PUSHOUT_ITERATIONS = 4;
 
@@ -37,6 +39,10 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     lives: GAME.startLives,
     livesLost: 0, // 本關失去的生命數（星星「未失去生命」用）
     combo: 0, // 球連續打破的磚數，碰到板子或失去生命歸零
+    energy: 0, // 技能能量 0～1；失去生命保留、過關或重玩歸零
+    shield: false, // 護盾是否在場上
+    laser: { time: 0, cooldown: 0 }, // 雷射剩餘時間與下一發的倒數
+    bolts: [], // 飛行中的雷射
     status: "playing", // playing | cleared | over
     ballSpeed: 0,
     lastSubsteps: 0,
@@ -86,6 +92,8 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     state.lives = GAME.startLives;
     state.livesLost = 0;
     state.combo = 0;
+    state.energy = 0;
+    clearSkillEffects();
     state.status = "playing";
     events.emit("gameReset", { level: state.level, lives: state.lives, score: state.score });
   }
@@ -246,8 +254,10 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     events.emit("comboChanged", { combo: 0, multiplier: 1 });
   }
 
-  // 每打破一塊磚（含爆炸連鎖）連擊 +1，分數乘上連擊倍率
-  function awardBrick(brick, baseScore, chainDepth) {
+  // 每打破一塊磚（含爆炸連鎖）連擊 +1，分數乘上連擊倍率。
+  // source 為 "laser" 時不給技能能量，否則雷射會自己把能量充滿
+  function awardBrick(brick, baseScore, chainDepth, source) {
+    if (source !== "laser") addEnergy(SKILL.energyPerBrick);
     state.combo += 1;
     const multiplier = comboMultiplier(state.combo);
     const score = baseScore * multiplier;
@@ -265,15 +275,108 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     dropCapsule(brick);
   }
 
-  function destroyBrick(brick) {
+  function destroyBrick(brick, source = "ball") {
     brick.alive = false;
-    awardBrick(brick, brick.score, 0);
+    awardBrick(brick, brick.score, 0, source);
     if (!brick.explosive) return;
 
     const { destroyed, detonations } = explode(brick, (row, col) => brickLookup.get(`${row},${col}`));
     for (const { brick: b, depth } of detonations) events.emit("explosion", { brick: b, depth });
     // 連鎖越深分數越高
-    for (const { brick: b, depth } of destroyed) awardBrick(b, b.score + CHAIN_BONUS * depth, depth);
+    for (const { brick: b, depth } of destroyed) awardBrick(b, b.score + CHAIN_BONUS * depth, depth, source);
+  }
+
+  // ---- 板子技能 ----
+
+  function skillDef() {
+    return paddleDef.skill ? SKILLS[paddleDef.skill] : null;
+  }
+
+  function addEnergy(amount) {
+    if (!skillDef() || state.energy >= 1) return;
+    state.energy = Math.min(1, state.energy + amount);
+    if (state.energy >= 1) events.emit("skillReady", { skill: paddleDef.skill });
+  }
+
+  function skillActive() {
+    return state.shield || state.laser.time > 0;
+  }
+
+  // 能量滿、而且上一次的技能已經結束才能施放
+  function castSkill() {
+    const skill = skillDef();
+    if (!skill || state.energy < 1 || skillActive()) return false;
+    state.energy = 0;
+    if (skill.id === "shield") state.shield = true;
+    if (skill.id === "laser") state.laser = { time: skill.duration, cooldown: 0 };
+    events.emit("skillCast", { skill: skill.id });
+    return true;
+  }
+
+  // 失去生命、過關、重玩時：護盾與雷射消失（能量不在這裡處理）
+  function clearSkillEffects() {
+    state.shield = false;
+    state.laser = { time: 0, cooldown: 0 };
+    state.bolts = [];
+  }
+
+  function shieldY() {
+    return field.height - SKILLS.shield.bottomMargin;
+  }
+
+  // 護盾：接住第一顆從上方穿過護盾的球後消失。
+  // beforeY 是這個子步驟移動前的位置；已經在護盾下方的球不會被拉回來
+  function collideShield(ball, beforeY) {
+    if (!state.shield || ball.vy <= 0) return false;
+    if (beforeY + ball.r > shieldY() || ball.y + ball.r < shieldY()) return false;
+    ball.y = shieldY() - ball.r;
+    ball.vy = -Math.abs(ball.vy);
+    state.shield = false;
+    events.emit("shieldHit", { ballId: ball.id, x: ball.x, y: shieldY() });
+    return true;
+  }
+
+  function fireLasers() {
+    const { boltSize, inset } = SKILLS.laser;
+    const paddle = state.paddle;
+    for (const cx of [paddle.x + inset, paddle.x + paddle.width - inset]) {
+      state.bolts.push(createBolt(cx, paddle.y, boltSize));
+    }
+    events.emit("laserFired", { x: paddleCenter(paddle), y: paddle.y });
+  }
+
+  // 雷射打到第一塊磚就消失：可破壞磚扣 1 下耐久，不可破壞磚擋住
+  function updateLaser(dt) {
+    const skill = SKILLS.laser;
+    if (state.laser.time > 0) {
+      // 先判斷發射、再扣冷卻與時間（第一發在施放的那個 tick）；
+      // 判斷都留一點誤差，避免浮點誤差讓間隔或總發數差一
+      if (state.laser.cooldown <= 1e-9) {
+        fireLasers();
+        state.laser.cooldown += skill.interval;
+      }
+      state.laser.cooldown -= dt;
+      state.laser.time -= dt;
+      if (state.laser.time <= 1e-9) {
+        state.laser.time = 0;
+        events.emit("skillEnded", { skill: "laser" });
+      }
+    }
+
+    const flying = [];
+    for (const bolt of state.bolts) {
+      bolt.prevY = bolt.y;
+      bolt.y -= skill.boltSpeed * dt;
+      const brick = findBoltHit(bolt, state.bricks);
+      if (brick) {
+        if (brick.breakable) brick.hp -= 1;
+        events.emit("brickHit", { brick, hp: brick.hp, laser: true });
+        if (brick.breakable && brick.hp <= 0) destroyBrick(brick, "laser");
+      } else if (bolt.y + bolt.h > 0) {
+        flying.push(bolt);
+      }
+    }
+    state.bolts = flying;
   }
 
   // ---- 道具 ----
@@ -381,6 +484,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     for (let i = 1; i <= n; i++) {
       // 板子位置也切成子步驟，快速移動時才不會穿過球
       const paddleX = lerp(paddle.prevX, paddle.x, i / n);
+      const beforeY = ball.y;
       ball.x += (ball.vx * dt) / n;
       ball.y += (ball.vy * dt) / n;
 
@@ -391,6 +495,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
         return true;
       }
       bounced = collideBricks(ball) || bounced;
+      bounced = collideShield(ball, beforeY) || bounced;
       if (bounced) fixVelocity(ball);
 
       if (ball.y - ball.r > field.height) return false;
@@ -410,8 +515,13 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     updatePaddle(paddle, input.paddleTargetX ?? paddleCenter(paddle), dt, field.width);
 
     if (input.launch && isHolding()) launch(input.aimAngle ?? LAUNCH.defaultAngleDeg);
-    else if (input.skill) events.emit("skillRequested", {});
+    else if (input.skill) castSkill();
     if (input.pause) events.emit("pauseRequested", {});
+
+    // 時間充能只在有球在飛的時候，避免發射前放著不動也能充
+    if (skillDef() && state.balls.some((b) => !b.stuck)) {
+      state.energy = addTimeEnergy(state.energy, SKILL.energyPerSecond * dt, SKILL.timeCap);
+    }
 
     for (const ball of state.balls) {
       ball.prevX = ball.x;
@@ -436,6 +546,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
       state.livesLost += 1;
       resetCombo();
       clearPowerups();
+      clearSkillEffects();
       events.emit("lifeLost", { lives: state.lives });
       if (state.lives <= 0) {
         state.status = "over";
@@ -445,16 +556,32 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
       state.balls.push(createStuckBall(paddle, BALL.radius));
     }
 
+    updateLaser(dt);
     updatePowerups(dt);
 
     if (!state.bricks.some((b) => b.alive && b.breakable)) {
       state.status = "cleared";
       clearPowerups();
+      clearSkillEffects();
       events.emit("levelCleared", { level: state.level, score: state.score, lives: state.lives, livesLost: state.livesLost });
     }
   }
 
   loadLevel(level);
 
-  return { state, step, reset, loadLevel, setFieldHeight, isHolding, setBricks, grantPowerup, currentSpeed };
+  return {
+    state,
+    step,
+    reset,
+    loadLevel,
+    setFieldHeight,
+    isHolding,
+    setBricks,
+    grantPowerup,
+    currentSpeed,
+    castSkill,
+    addEnergy,
+    skillDef,
+    shieldY,
+  };
 }

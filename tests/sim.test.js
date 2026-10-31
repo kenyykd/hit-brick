@@ -22,16 +22,19 @@ function seededRng(seed) {
 
 // 開啟道具時：多球會掉球、火球不反彈、減速改變球速，所以只檢查不出界、不卡磚，
 // 生命用完就補回來，速度改對照 currentSpeed()
-function simulate(level, { powerups = false } = {}) {
+// paddle：用哪塊板子；有技能的板子能量一滿就施放
+function simulate(level, { powerups = false, paddle = "standard" } = {}) {
   const events = createEventBus();
   let lost = 0;
   let collected = 0;
+  let casts = 0;
   events.on("lifeLost", () => lost++);
   events.on("powerupCollected", () => collected++);
+  events.on("skillCast", () => casts++);
 
   const game = createGame({
     fieldHeight: FIELD.minHeight,
-    paddleDef: PADDLES.standard,
+    paddleDef: PADDLES[paddle],
     events,
     level,
     ballSpeed: BALL.maxSpeed,
@@ -54,6 +57,7 @@ function simulate(level, { powerups = false } = {}) {
       paddleTargetX: ball.x + offset,
       aimAngle: Math.sin(t) * 60 * DEG,
       launch: game.isHolding(),
+      skill: state.energy >= 1,
     });
     if (powerups) state.lives = 3;
 
@@ -93,7 +97,7 @@ function simulate(level, { powerups = false } = {}) {
       }
     }
   }
-  return { failure, lost, refills, collected };
+  return { failure, lost, refills, collected, casts };
 }
 
 describe("10 分鐘最高球速模擬", () => {
@@ -104,6 +108,25 @@ describe("10 分鐘最高球速模擬", () => {
       expect(result.lost).toBe(0);
       expect(result.refills).toBeGreaterThan(3);
     });
+  }
+});
+
+describe("護盾板與雷射板的 10 分鐘最高球速模擬（能量滿就放技能）", () => {
+  for (const paddle of ["shield", "laser"]) {
+    for (const level of [LEVELS[4], SANDBOX_LEVEL]) {
+      it(`${PADDLES[paddle].name}・第 ${level.id} 關（${level.name}）：能反覆清關，球不穿磚、不卡磚、不出界`, () => {
+        const result = simulate(level, { paddle });
+        expect(result.failure).toBeNull();
+        expect(result.lost).toBe(0);
+        expect(result.refills).toBeGreaterThan(3);
+        expect(result.casts).toBeGreaterThan(5);
+      });
+      it(`${PADDLES[paddle].name}・第 ${level.id} 關（${level.name}）：技能與道具同時作用時不出錯`, () => {
+        const result = simulate(level, { paddle, powerups: true });
+        expect(result.failure).toBeNull();
+        expect(result.casts).toBeGreaterThan(5);
+      });
+    }
   }
 });
 
