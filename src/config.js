@@ -38,6 +38,12 @@ export const GAME = {
   resumeCountdown: 3, // 暫停恢復前的倒數秒數
 };
 
+// 星星：過關 1 顆、達到目標分數 1 顆、沒失去生命 1 顆。
+// 目標分數 = 可破壞磚的基礎總分 × 倍數（要靠連擊才拿得到），關卡可個別覆寫
+export const STARS = {
+  targetMultiplier: 1.6,
+};
+
 export const COMBO = {
   step: 5, // 每幾連擊加 1 倍
   maxMultiplier: 4,

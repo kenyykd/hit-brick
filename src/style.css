@@ -401,6 +401,115 @@ body {
   font-weight: 700;
 }
 
+.result-stars {
+  margin: 0 0 4px !important;
+  color: var(--gold);
+  font-size: 34px !important;
+  letter-spacing: 6px;
+}
+
+.result-stars:empty,
+.unlocks:empty {
+  display: none;
+}
+
+.unlocks {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.stars-total {
+  margin: -6px 0 12px !important;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* ---- 上方提示框（成就、解鎖）：不擋操作 ---- */
+
+.toast {
+  position: absolute;
+  top: calc(76px * var(--ui-scale));
+  left: 50%;
+  z-index: 20;
+  max-width: calc(100% - 32px);
+  padding: 8px 16px;
+  border: 2px solid var(--gold);
+  border-radius: 999px;
+  background: rgba(12, 14, 22, 0.92);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+.toast.enter {
+  animation: toast-in 0.25s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast.enter {
+    animation: none;
+  }
+}
+
+/* ---- 成就 ---- */
+
+.achievement-list {
+  text-align: left;
+}
+
+.achievement-category {
+  margin: 16px 0 6px !important;
+  color: var(--muted);
+  font-size: 15px !important;
+}
+
+.achievement {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  opacity: 0.55;
+}
+
+.achievement.done {
+  opacity: 1;
+}
+
+.achievement-mark {
+  grid-row: span 2;
+  align-self: center;
+  color: var(--gold);
+  font-weight: 700;
+  text-align: center;
+}
+
+.achievement-name {
+  font-weight: 700;
+}
+
+.achievement-desc {
+  color: var(--muted);
+  font-size: 14px;
+}
+
 /* ---- 選關 ---- */
 
 .level-grid {
@@ -492,6 +601,91 @@ body {
 .paddle-skill {
   color: var(--muted);
   font-size: 14px;
+}
+
+/* ---- 皮膚 ---- */
+
+.panel h3 {
+  text-align: left;
+}
+
+.skin-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.panel .skin-card {
+  --skin-color: var(--accent);
+  min-width: 0;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.panel .skin-card.selected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.panel .skin-card.locked {
+  cursor: not-allowed;
+}
+
+.skin-card.locked .skin-name {
+  color: var(--gold);
+}
+
+/* 預覽：球是圓、板子是長條；style 對應 src/data/skins.js */
+.skin-preview {
+  display: block;
+  background: var(--skin-color);
+}
+
+.skin-preview.ball {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.skin-preview.paddle {
+  width: 52px;
+  height: 12px;
+  border-radius: 6px;
+}
+
+.skin-preview.silhouette {
+  background: #2b3040;
+  box-shadow: none;
+}
+
+.skin-preview.ball.shine {
+  background: radial-gradient(circle at 35% 35%, #fff9db 0 15%, var(--skin-color) 70%);
+}
+
+.skin-preview.glow {
+  box-shadow: 0 0 10px 2px var(--skin-color);
+}
+
+.skin-preview.ball.pixel {
+  border-radius: 3px;
+}
+
+.skin-preview.paddle.stripes {
+  background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.35) 0 3px, transparent 3px 9px), var(--skin-color);
+}
+
+.skin-preview.paddle.gradient {
+  background: linear-gradient(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.3)), var(--skin-color);
 }
 
 /* ---- 設定 ---- */

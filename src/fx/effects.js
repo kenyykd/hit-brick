@@ -30,7 +30,16 @@ function defaultVibrate(ms) {
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(ms);
 }
 
-export function createEffects({ events, getState, getSettings, reducedMotion = false, getAutoLevel = () => "high", vibrate = defaultVibrate }) {
+// getBallColor：球拖尾的顏色，跟著球的外觀
+export function createEffects({
+  events,
+  getState,
+  getSettings,
+  reducedMotion = false,
+  getAutoLevel = () => "high",
+  vibrate = defaultVibrate,
+  getBallColor = () => "#f8f9fa",
+}) {
   const particles = createPool(MAX_PARTICLES, () => ({
     x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 0, color: "", gravity: 0, confetti: false, rot: 0, spin: 0,
   }));
@@ -238,7 +247,7 @@ export function createEffects({ events, getState, getSettings, reducedMotion = f
   // ---- 繪製 ----
 
   function drawUnder(ctx) {
-    ctx.fillStyle = getState().effects?.fireball ? "#ff922b" : "#f8f9fa";
+    ctx.fillStyle = getState().effects?.fireball ? "#ff922b" : getBallColor();
     for (const trail of trails.values()) {
       for (let i = 1; i < trail.count; i++) {
         const index = (trail.start + i) % MAX_TRAIL;

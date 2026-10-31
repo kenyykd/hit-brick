@@ -46,6 +46,12 @@ export function parseLevel(level) {
     throw new LevelError(`球速要在 ${LEVEL_LIMITS.minBallSpeed}～${LEVEL_LIMITS.maxBallSpeed} 之間`);
   }
   if (!Object.hasOwn(THEMES, level.theme)) throw new LevelError(`未知的主題「${level.theme}」`);
+  if (level.targetScore !== undefined && !(Number.isFinite(level.targetScore) && level.targetScore >= 0 && level.targetScore <= 1e7)) {
+    throw new LevelError("目標分數要是 0～10000000 的數字");
+  }
+  if (level.targetMultiplier !== undefined && !(Number.isFinite(level.targetMultiplier) && level.targetMultiplier >= 1 && level.targetMultiplier <= 5)) {
+    throw new LevelError("目標分數倍數要在 1～5 之間");
+  }
 
   return { cols, rows: rows.length, cells };
 }

@@ -1,11 +1,14 @@
 // 存檔：localStorage 加版本號。讀到的內容一律當不可信資料驗證；
 // 讀不到、毀損或瀏覽器不讓存（隱私模式）時用預設值，遊戲照常可玩，只是不保存。
 
+import { ACHIEVEMENT_IDS } from "../data/achievements.js";
 import { sanitizeKeybindings } from "../data/keybindings.js";
 import { PADDLES } from "../data/paddles.js";
+import { POWERUPS } from "../data/powerups.js";
+import { BALL_SKINS, PADDLE_SKINS } from "../data/skins.js";
 
 export const SAVE_KEY = "hit-brick-save";
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 const MAX_RAW_LENGTH = 200_000;
 const MAX_LEVEL_ENTRIES = 500;
 const EFFECT_LEVELS = ["high", "medium", "low"];
@@ -17,6 +20,14 @@ export function defaultSave() {
     unlockedLevel: 1,
     levels: {}, // { [關卡編號]: { bestScore, cleared, stars } }
     selectedPaddle: "standard",
+    selectedBallSkin: "classic",
+    selectedPaddleSkin: "solid",
+    achievements: [], // 已達成的成就 id
+    stats: {
+      powerups: [], // 接過的道具種類
+      laserBricks: 0, // 雷射累計打破的磚
+      paddlesCleared: [], // 用來過關過的板子
+    },
     settings: {
       sound: true,
       music: true,
@@ -30,9 +41,11 @@ export function defaultSave() {
 }
 
 // 舊版存檔升級：MIGRATIONS[n] 把第 n 版轉成第 n + 1 版。
-// 第 0 版代表沒有版本號的資料（目前沒有實際的舊版，先放好機制）。
+// 第 0 版代表沒有版本號的資料。新增的欄位由 sanitizeSave 補預設值，舊的進度原封保留。
 const MIGRATIONS = {
   0: (data) => ({ ...data, version: 1 }),
+  // 第 2 版（階段 7）：新增皮膚、成就、統計欄位
+  1: (data) => ({ ...data, version: 2 }),
 };
 
 export function migrate(data) {
@@ -48,6 +61,9 @@ export function migrate(data) {
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const bool = (v, fallback) => (typeof v === "boolean" ? v : fallback);
 const intIn = (v, min, max, fallback) => (Number.isInteger(v) && v >= min && v <= max ? v : fallback);
+const keyOf = (v, table, fallback) => (typeof v === "string" && Object.hasOwn(table, v) ? v : fallback);
+// 只留下清單裡認得的值，去掉重複
+const knownList = (v, allowed) => (Array.isArray(v) ? [...new Set(v.filter((x) => allowed.includes(x)))] : []);
 
 function sanitizeLevels(raw) {
   const result = {};
@@ -71,9 +87,17 @@ export function sanitizeSave(raw) {
   if (typeof raw.playerId === "string" && /^[A-Za-z0-9-]{8,64}$/.test(raw.playerId)) save.playerId = raw.playerId;
   save.unlockedLevel = intIn(raw.unlockedLevel, 1, 9999, 1);
   save.levels = sanitizeLevels(raw.levels);
-  if (typeof raw.selectedPaddle === "string" && Object.hasOwn(PADDLES, raw.selectedPaddle)) {
-    save.selectedPaddle = raw.selectedPaddle;
-  }
+  save.selectedPaddle = keyOf(raw.selectedPaddle, PADDLES, "standard");
+  save.selectedBallSkin = keyOf(raw.selectedBallSkin, BALL_SKINS, "classic");
+  save.selectedPaddleSkin = keyOf(raw.selectedPaddleSkin, PADDLE_SKINS, "solid");
+  save.achievements = knownList(raw.achievements, ACHIEVEMENT_IDS);
+
+  const stats = isPlainObject(raw.stats) ? raw.stats : {};
+  save.stats = {
+    powerups: knownList(stats.powerups, Object.keys(POWERUPS)),
+    laserBricks: intIn(stats.laserBricks, 0, 1e7, 0),
+    paddlesCleared: knownList(stats.paddlesCleared, Object.keys(PADDLES)),
+  };
 
   const s = isPlainObject(raw.settings) ? raw.settings : {};
   save.settings = {
@@ -86,7 +110,8 @@ export function sanitizeSave(raw) {
   };
 
   if (Array.isArray(raw.hintsSeen)) {
-    save.hintsSeen = [...new Set(raw.hintsSeen.filter((h) => typeof h === "string" && /^[a-z-]{1,32}$/.test(h)))].slice(0, 100);
+    // 提示 id 可能有大寫（例如 powerup-extraLife）
+    save.hintsSeen = [...new Set(raw.hintsSeen.filter((h) => typeof h === "string" && /^[A-Za-z-]{1,32}$/.test(h)))].slice(0, 100);
   }
   return save;
 }
@@ -113,6 +138,16 @@ export function getLocalStorage() {
   }
 }
 
+// 原始存檔文字裡的版本號；讀不出來（毀損或不是物件）時回傳 Infinity，不觸發升級寫回
+function storedVersion(rawText) {
+  try {
+    const version = JSON.parse(rawText)?.version;
+    return Number.isInteger(version) ? version : 0;
+  } catch {
+    return Infinity;
+  }
+}
+
 export function createSaveStore(storage = getLocalStorage()) {
   let persistent = Boolean(storage);
   let data = defaultSave();
@@ -126,6 +161,8 @@ export function createSaveStore(storage = getLocalStorage()) {
         if (JSON.stringify(data) === JSON.stringify(defaultSave()) && raw !== JSON.stringify(data)) {
           storage.setItem(`${SAVE_KEY}-backup`, raw.slice(0, MAX_RAW_LENGTH));
         }
+        // 舊版存檔升級後立刻寫回新版，不用等下一次存檔
+        if (storedVersion(raw) < SAVE_VERSION) persist();
       }
     } catch {
       data = defaultSave();

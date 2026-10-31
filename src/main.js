@@ -56,6 +56,8 @@ const fx = createEffects({
   getSettings,
   reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   getAutoLevel: () => autoQuality.level,
+  // app 在下面才建立；拖尾只在繪製時（app 建立之後）才會讀顏色
+  getBallColor: () => app.skins().ball.color,
 });
 
 const hud = createHud({
@@ -76,13 +78,21 @@ const app = createApp({
     hint: $("#hint"),
     countdown: $("#countdown-number"),
     levelGrid: $("#level-grid"),
+    levelStarsTotal: $("#level-stars-total"),
     paddleList: $("#paddle-list"),
+    ballSkinList: $("#ball-skin-list"),
+    paddleSkinList: $("#paddle-skin-list"),
+    achievementList: $("#achievement-list"),
+    achievementCount: $("#achievement-count"),
+    toast: $("#toast"),
     saveWarning: $("#save-warning"),
     result: {
       title: $("#result-title"),
+      stars: $("#result-stars"),
       score: $("#result-score"),
       best: $("#result-best"),
       target: $("#result-target"),
+      unlocks: $("#result-unlocks"),
       next: $("#result-next"),
     },
     settings: {
@@ -150,7 +160,7 @@ startLoop({
     const layout = viewport.layout;
     if (!layout) return;
     debug.frame(now);
-    renderer.draw(game.state, { alpha, aim: input.getAim(), layout, fx });
+    renderer.draw(game.state, { alpha, aim: input.getAim(), layout, fx, skins: app.skins() });
     hud.update();
     if (debug.enabled) {
       debug.setStats({

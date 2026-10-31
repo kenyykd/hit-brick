@@ -100,10 +100,12 @@ describe("存檔驗證（不可信資料）", () => {
 });
 
 describe("關卡進度", () => {
+  const clear = (score, extra = {}) => ({ score, target: 1000, livesLost: 1, ...extra });
+
   it("過關解鎖下一關並記錄最高分", () => {
     const save = defaultSave();
     expect(isLevelUnlocked(save, 2)).toBe(false);
-    const r = recordLevelClear(save, 1, 300);
+    const r = recordLevelClear(save, 1, clear(300));
     expect(r.isNewBest).toBe(true);
     expect(isLevelUnlocked(save, 2)).toBe(true);
     expect(levelRecord(save, 1)).toMatchObject({ bestScore: 300, cleared: true });
@@ -111,11 +113,57 @@ describe("關卡進度", () => {
 
   it("最高分只增不減，重玩舊關不會降低解鎖進度", () => {
     const save = defaultSave();
-    recordLevelClear(save, 1, 300);
-    recordLevelClear(save, 2, 200);
-    const r = recordLevelClear(save, 1, 100);
+    recordLevelClear(save, 1, clear(300));
+    recordLevelClear(save, 2, clear(200));
+    const r = recordLevelClear(save, 1, clear(100));
     expect(r.isNewBest).toBe(false);
     expect(levelRecord(save, 1).bestScore).toBe(300);
     expect(save.unlockedLevel).toBe(3);
+  });
+});
+
+describe("存檔第 2 版", () => {
+  it("第 1 版存檔升級後進度完整保留，新欄位補預設值", () => {
+    const v1 = {
+      version: 1,
+      unlockedLevel: 4,
+      levels: { 1: { bestScore: 320, cleared: true, stars: 2 }, 2: { bestScore: 500, cleared: true, stars: 3 } },
+      selectedPaddle: "standard",
+      settings: { sound: false, music: true, effects: "low", screenShake: false, vibration: true, keybindings: null },
+      hintsSeen: ["aim", "powerup-extraLife"],
+    };
+    const save = parseSave(JSON.stringify(v1));
+    expect(save.version).toBe(2);
+    expect(save.unlockedLevel).toBe(4);
+    expect(save.levels).toEqual(v1.levels);
+    expect(save.settings).toMatchObject({ sound: false, effects: "low", screenShake: false });
+    expect(save.hintsSeen).toEqual(["aim", "powerup-extraLife"]);
+    expect(save.selectedBallSkin).toBe("classic");
+    expect(save.selectedPaddleSkin).toBe("solid");
+    expect(save.achievements).toEqual([]);
+    expect(save.stats).toEqual({ powerups: [], laserBricks: 0, paddlesCleared: [] });
+  });
+
+  it("讀到舊版存檔時立刻寫回新版；毀損的存檔不會被覆蓋", () => {
+    const old = memoryStorage({ [SAVE_KEY]: JSON.stringify({ version: 1, unlockedLevel: 2 }) });
+    createSaveStore(old);
+    expect(JSON.parse(old.getItem(SAVE_KEY))).toMatchObject({ version: SAVE_VERSION, unlockedLevel: 2 });
+
+    const broken = memoryStorage({ [SAVE_KEY]: "{壞掉" });
+    createSaveStore(broken);
+    expect(broken.getItem(SAVE_KEY)).toBe("{壞掉");
+  });
+
+  it("新欄位也當不可信資料驗證", () => {
+    const save = sanitizeSave({
+      selectedBallSkin: "<script>",
+      selectedPaddleSkin: "glow",
+      achievements: ["first-clear", "不存在的成就", "first-clear", 42],
+      stats: { powerups: ["fireball", "hack"], laserBricks: -3, paddlesCleared: ["laser", "laser"] },
+    });
+    expect(save.selectedBallSkin).toBe("classic");
+    expect(save.selectedPaddleSkin).toBe("glow");
+    expect(save.achievements).toEqual(["first-clear"]);
+    expect(save.stats).toEqual({ powerups: ["fireball"], laserBricks: 0, paddlesCleared: ["laser"] });
   });
 });

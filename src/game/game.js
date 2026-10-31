@@ -6,6 +6,7 @@ import { CHAIN_BONUS } from "../data/brick-types.js";
 import { POWERUPS } from "../data/powerups.js";
 import { SKILLS } from "../data/skills.js";
 import { buildBricks, parseLevel } from "../levels/parse.js";
+import { targetScore } from "../levels/target.js";
 import { circleRectContact, findNearestHit } from "../physics/collision.js";
 import {
   enforceMinVerticalAngle,
@@ -36,6 +37,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     capsules: [], // 掉落中的道具膠囊
     effects: {}, // 啟用中的計時道具：id → 剩餘秒數（遊戲時間）
     score: 0,
+    targetScore: 0, // 這關「達到目標分數」星星的門檻
     lives: GAME.startLives,
     livesLost: 0, // 本關失去的生命數（星星「未失去生命」用）
     combo: 0, // 球連續打破的磚數，碰到板子或失去生命歸零
@@ -84,6 +86,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     state.paddle = createPaddle(paddleDef, field.width, paddleY());
     state.balls = [createStuckBall(state.paddle, BALL.radius)];
     setBricks(buildBricks(parsedLevel, field.width, BRICK_LAYOUT));
+    state.targetScore = targetScore(state.level, state.bricks);
     state.ballSpeed = Math.min(ballSpeed ?? state.level.ballSpeed, BALL.maxSpeed);
     state.capsules = [];
     state.effects = {};
@@ -270,6 +273,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
       chainDepth,
       combo: state.combo,
       multiplier,
+      source,
     });
     events.emit("comboChanged", { combo: state.combo, multiplier });
     dropCapsule(brick);
@@ -284,6 +288,8 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
     for (const { brick: b, depth } of detonations) events.emit("explosion", { brick: b, depth });
     // 連鎖越深分數越高
     for (const { brick: b, depth } of destroyed) awardBrick(b, b.score + CHAIN_BONUS * depth, depth, source);
+    // 一次爆炸總共打破幾塊磚（含引爆的那塊）
+    events.emit("chainResolved", { count: destroyed.length + 1, source });
   }
 
   // ---- 板子技能 ----
@@ -550,7 +556,7 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
       events.emit("lifeLost", { lives: state.lives });
       if (state.lives <= 0) {
         state.status = "over";
-        events.emit("gameOver", { level: state.level, score: state.score });
+        events.emit("gameOver", { level: state.level, score: state.score, targetScore: state.targetScore });
         return;
       }
       state.balls.push(createStuckBall(paddle, BALL.radius));
@@ -563,7 +569,14 @@ export function createGame({ fieldHeight, paddleDef, events, level, ballSpeed, r
       state.status = "cleared";
       clearPowerups();
       clearSkillEffects();
-      events.emit("levelCleared", { level: state.level, score: state.score, lives: state.lives, livesLost: state.livesLost });
+      events.emit("levelCleared", {
+        level: state.level,
+        score: state.score,
+        targetScore: state.targetScore,
+        lives: state.lives,
+        livesLost: state.livesLost,
+        paddleId: paddleDef.id,
+      });
     }
   }
 

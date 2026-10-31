@@ -1,6 +1,6 @@
 // 遊戲流程狀態機（純邏輯，不碰 DOM）。
 //
-// 畫面：menu 主選單、levels 選關、paddles 選板子、settings 設定、
+// 畫面：menu 主選單、levels 選關、paddles 板子與外觀、achievements 成就、settings 設定、
 //       game 遊戲中、paused 暫停、countdown 恢復倒數、result 結算
 // 「準備中」（球還在板子上）屬於 game，由遊戲狀態判斷。
 
@@ -67,6 +67,7 @@ export function createFlow({ onChange = () => {} } = {}) {
         return true;
       case "levels":
       case "paddles":
+      case "achievements":
         go("menu");
         return true;
       case "settings":

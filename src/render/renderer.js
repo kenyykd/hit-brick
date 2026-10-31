@@ -3,10 +3,12 @@
 import { angleToUpVector, lerp } from "../core/math.js";
 import { POWERUPS } from "../data/powerups.js";
 import { SKILLS } from "../data/skills.js";
+import { BALL_SKINS, PADDLE_SKINS } from "../data/skins.js";
 import { BRICK_COLORS, THEMES, brickColor } from "../data/themes.js";
 
+const DEFAULT_SKINS = { ball: BALL_SKINS.classic, paddle: PADDLE_SKINS.solid };
+
 const COLORS = {
-  ball: "#f8f9fa",
   fireball: "#ff922b",
   magnet: "#f783ac",
   capsuleIcon: "#141927",
@@ -68,10 +70,44 @@ export function createRenderer(canvas) {
     }
   }
 
-  function drawPaddle(paddle, alpha, magnet) {
+  // 板子外觀：套在板子本身的顏色上（純外觀，判定框不變）
+  function drawPaddleSkin(skin, color, x, y, w, h) {
+    const r = h / 2;
+    ctx.save();
+    if (skin.style === "glow") {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 14;
+    }
+    ctx.fillStyle = color;
+    roundRect(x, y, w, h, r);
+    ctx.shadowBlur = 0;
+    if (skin.style === "stripes") {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+      else ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.lineWidth = 4;
+      for (let sx = x - h; sx < x + w; sx += 12) {
+        ctx.beginPath();
+        ctx.moveTo(sx, y + h);
+        ctx.lineTo(sx + h, y);
+        ctx.stroke();
+      }
+    } else if (skin.style === "gradient") {
+      const g = ctx.createLinearGradient(x, y, x, y + h);
+      g.addColorStop(0, "rgba(255, 255, 255, 0.55)");
+      g.addColorStop(0.5, "rgba(255, 255, 255, 0)");
+      g.addColorStop(1, "rgba(0, 0, 0, 0.3)");
+      ctx.fillStyle = g;
+      roundRect(x, y, w, h, r);
+    }
+    ctx.restore();
+  }
+
+  function drawPaddle(paddle, alpha, magnet, skin) {
     const x = lerp(paddle.prevX, paddle.x, alpha);
-    ctx.fillStyle = paddle.def.color;
-    roundRect(x, paddle.y, paddle.width, paddle.height, paddle.height / 2);
+    drawPaddleSkin(skin, paddle.def.color, x, paddle.y, paddle.width, paddle.height);
     if (magnet) {
       ctx.fillStyle = COLORS.magnet;
       roundRect(x + 6, paddle.y - 2, paddle.width - 12, 4, 2);
@@ -111,12 +147,46 @@ export function createRenderer(canvas) {
     }
   }
 
-  function drawBalls(balls, alpha, fire) {
-    ctx.fillStyle = fire ? COLORS.fireball : COLORS.ball;
-    for (const ball of balls) {
+  // 球的外觀（純外觀）。火球生效時一律畫成橘色圓球：那是遊戲資訊，皮膚不能蓋掉
+  function drawBall(skin, x, y, r, fire) {
+    if (fire) {
+      ctx.fillStyle = COLORS.fireball;
       ctx.beginPath();
-      ctx.arc(lerp(ball.prevX, ball.x, alpha), lerp(ball.prevY, ball.y, alpha), ball.r, 0, Math.PI * 2);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
+      return;
+    }
+    if (skin.style === "pixel") {
+      // 8-bit 方塊球：外框加亮色內塊
+      ctx.fillStyle = skin.color;
+      ctx.fillRect(x - r, y - r * 0.6, r * 2, r * 1.2);
+      ctx.fillRect(x - r * 0.6, y - r, r * 1.2, r * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.fillRect(x - r * 0.5, y - r * 0.6, r * 0.4, r * 0.4);
+      return;
+    }
+    ctx.save();
+    if (skin.style === "glow") {
+      ctx.shadowColor = skin.color;
+      ctx.shadowBlur = 12;
+    }
+    if (skin.style === "shine") {
+      const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
+      g.addColorStop(0, "#fff9db");
+      g.addColorStop(1, skin.color);
+      ctx.fillStyle = g;
+    } else {
+      ctx.fillStyle = skin.color;
+    }
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBalls(balls, alpha, fire, skin) {
+    for (const ball of balls) {
+      drawBall(skin, lerp(ball.prevX, ball.x, alpha), lerp(ball.prevY, ball.y, alpha), ball.r, fire);
     }
   }
 
@@ -149,7 +219,8 @@ export function createRenderer(canvas) {
   }
 
   // fx：特效層（可省略）；畫面震動只是整個畫面平移，不影響判定
-  function draw(state, { alpha, aim, layout, fx }) {
+  // skins：{ ball, paddle } 皮膚，省略時用預設外觀
+  function draw(state, { alpha, aim, layout, fx, skins = DEFAULT_SKINS }) {
     const { width, height } = state.field;
     const sx = layout.pixelWidth / width;
     const sy = layout.pixelHeight / height;
@@ -164,10 +235,10 @@ export function createRenderer(canvas) {
     drawCapsules(state.capsules, alpha);
     drawShield(state);
     drawBolts(state.bolts, alpha);
-    drawPaddle(state.paddle, alpha, Object.hasOwn(state.effects, "magnet"));
+    drawPaddle(state.paddle, alpha, Object.hasOwn(state.effects, "magnet"), skins.paddle);
     fx?.drawUnder(ctx);
     drawAim(state.balls, aim);
-    drawBalls(state.balls, alpha, Object.hasOwn(state.effects, "fireball"));
+    drawBalls(state.balls, alpha, Object.hasOwn(state.effects, "fireball"), skins.ball);
     fx?.drawOver(ctx);
   }
 

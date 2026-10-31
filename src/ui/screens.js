@@ -1,6 +1,7 @@
 // HTML 畫面：切換顯示、選關、選板子、結算。文字一律用 textContent。
 
-import { isLevelUnlocked, levelRecord } from "../save/progress.js";
+import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES } from "../data/achievements.js";
+import { isLevelUnlocked, levelRecord, totalStars } from "../save/progress.js";
 
 export function createScreens(stage) {
   const sections = [...stage.querySelectorAll("[data-screen]")];
@@ -24,7 +25,8 @@ function starsText(count) {
   return "★".repeat(count) + "☆".repeat(3 - count);
 }
 
-export function renderLevelSelect(container, { levels, save, onPick }) {
+export function renderLevelSelect(container, { levels, save, totalEl, onPick }) {
+  totalEl.textContent = `★ ${totalStars(save)} / ${levels.length * 3}`;
   container.replaceChildren();
   for (const level of levels) {
     const unlocked = isLevelUnlocked(save, level.id);
@@ -77,6 +79,44 @@ export function renderPaddleSelect(container, { paddles, selectedId, starsNeeded
   }
 }
 
+// 皮膚選擇：預覽用 CSS 畫，未解鎖顯示剪影與還差幾顆星
+// kind："ball" | "paddle"；paddleColor：板子外觀預覽用目前板子的顏色
+export function renderSkinSelect(container, { skins, kind, selectedId, starsNeeded, paddleColor, onPick }) {
+  container.replaceChildren();
+  for (const skin of Object.values(skins)) {
+    const needed = starsNeeded(skin.id);
+    const locked = needed > 0;
+    const button = el("button", "skin-card");
+    button.type = "button";
+    button.disabled = locked;
+    button.classList.toggle("locked", locked);
+    button.classList.toggle("selected", skin.id === selectedId);
+    button.setAttribute("aria-pressed", String(skin.id === selectedId));
+    const preview = el("span", `skin-preview ${kind} ${locked ? "silhouette" : skin.style}`);
+    preview.style.setProperty("--skin-color", kind === "ball" ? skin.color : paddleColor);
+    button.append(preview, el("span", "skin-name", locked ? `還差 ${needed}★` : skin.name));
+    button.setAttribute("aria-label", locked ? `${skin.name}，還差 ${needed} 顆星解鎖` : skin.name);
+    button.addEventListener("click", () => onPick(skin));
+    container.append(button);
+  }
+}
+
+// 成就列表：依類別分組，已達成的打勾
+export function renderAchievements(container, { unlocked, countEl }) {
+  countEl.textContent = `已達成 ${unlocked.length} / ${ACHIEVEMENTS.length}`;
+  container.replaceChildren();
+  for (const [category, label] of Object.entries(ACHIEVEMENT_CATEGORIES)) {
+    container.append(el("h3", "achievement-category", label));
+    for (const a of ACHIEVEMENTS.filter((x) => x.category === category)) {
+      const done = unlocked.includes(a.id);
+      const row = el("div", `achievement ${done ? "done" : ""}`);
+      row.append(el("span", "achievement-mark", done ? "✓" : "○"), el("span", "achievement-name", a.name), el("span", "achievement-desc", a.description));
+      row.setAttribute("aria-label", `${a.name}：${a.description}，${done ? "已達成" : "未達成"}`);
+      container.append(row);
+    }
+  }
+}
+
 const RESULT_TITLES = {
   cleared: "過關！",
   allCleared: "全部通關！",
@@ -91,6 +131,10 @@ export function renderResult(els, result) {
   } else {
     els.best.textContent = result.isNewBest ? "新紀錄！" : `本關最高 ${result.best}`;
   }
-  els.target.textContent = result.target > 0 ? `目標分數 ${result.target}` : "";
+  els.target.textContent = result.target > 0 ? `目標分數 ${result.target}${result.score >= result.target ? " ✓" : ""}` : "";
+  // 這次拿到的星星（過關時才有）
+  els.stars.textContent = result.stars ? starsText(result.stars) : "";
+  els.stars.setAttribute("aria-label", result.stars ? `${result.stars} 顆星` : "");
+  els.unlocks.textContent = result.unlocks?.length ? `🎉 解鎖：${result.unlocks.join("、")}` : "";
   els.next.hidden = !result.hasNext;
 }
